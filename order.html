@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Order online from Emerald's Cuisine - browse a premium menu of grills, Nigerian cuisine, soups, desserts and drinks with easy checkout and delivery in Lagos.">
+    <title>Order Online | Emerald's Cuisine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-aX+Eq0KEW5rJ+l+2r5SN0Iio51i8HnSsq8AIDf2mXjBS8I1TYMRt0BfUpaL0c9JwV6uBfAfk57hcmJ4Z8+7ADg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <header id="header" class="site-header">
+        <div class="container header-inner">
+            <a href="index.html" class="logo" aria-label="Emerald's Cuisine home">
+                <span>Emerald's</span>
+                <small>Cuisine</small>
+            </a>
+            <nav class="primary-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#menu">Menu</a></li>
+                    <li><a href="index.html#about">About</a></li>
+                    <li><a href="index.html#reservations">Reservations</a></li>
+                    <li><a href="index.html#gallery">Gallery</a></li>
+                    <li><a href="index.html#contact">Contact</a></li>
+                    <li><a href="order.html" class="nav-cta">Order Now</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <a href="checkout.html" class="btn btn-secondary">Checkout<span class="cart-count" aria-hidden="true">0</span></a>
+                <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+    <div class="nav-overlay"></div>
+
+    <main id="main-content">
+        <section class="page-hero order-hero reveal">
+            <div class="container hero-grid">
+                <div class="hero-copy">
+                    <span class="eyebrow">Order online</span>
+                    <h1>Fresh flavours delivered from our kitchen to your door.</h1>
+                    <p>Browse our premium menu, choose your favourites and complete the order with a secure checkout.</p>
+                    <div class="hero-actions">
+                        <a href="#order-menu" class="btn btn-primary">Browse menu</a>
+                        <a href="#cart" class="btn btn-outline">View cart</a>
+                    </div>
+                </div>
+                <div class="hero-media order-hero-image">
+                    <img src="https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&w=1000&q=80" alt="Fresh seafood and plated meal for online order">
+                </div>
+            </div>
+        </section>
+
+        <section class="order-section reveal" id="order-menu">
+            <div class="container order-grid">
+                <div class="order-content scroll-panel">
+                    <div class="order-toolbar">
+                        <div>
+                            <span class="eyebrow">Menu</span>
+                            <h2>Find your perfect meal</h2>
+                        </div>
+                        <div class="search-group">
+                            <label class="screen-reader-text" for="menu-search">Search menu</label>
+                            <input id="menu-search" type="search" placeholder="Search dishes, drinks or desserts">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </div>
+                    </div>
+
+                    <div class="category-filters">
+                        <label for="category-select">Category</label>
+                        <select id="category-select" aria-label="Filter menu by category">
+                            <option value="all">All</option>
+                            <option value="breakfast">Breakfast</option>
+                            <option value="nigerian">Nigerian Cuisine</option>
+                            <option value="pasta">Pasta & Noodles</option>
+                            <option value="grills">Grills & Proteins</option>
+                            <option value="soups">Soups & Swallows</option>
+                            <option value="salads">Salads</option>
+                            <option value="desserts">Desserts & Sharing</option>
+                            <option value="drinks">Drinks & Cocktails</option>
+                            <option value="sides">Sides & Add-ons</option>
+                        </select>
+                    </div>
+
+                    <div class="menu-grid order-menu-grid" aria-live="polite"></div>
+                </div>
+
+                <aside class="cart-panel scroll-panel" id="cart">
+                    <div class="cart-header">
+                        <span class="eyebrow">Your cart</span>
+                        <h3>Selected items</h3>
+                    </div>
+                    <div class="cart-items"></div>
+                    <div class="cart-summary">
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <strong id="cart-subtotal">₦0</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>Delivery fee</span>
+                            <strong id="cart-delivery">₦1,500</strong>
+                        </div>
+                        <div class="summary-row">
+                            <span>VAT (7.5%)</span>
+                            <strong id="cart-vat">₦0</strong>
+                        </div>
+                        <div class="summary-total">
+                            <span>Total</span>
+                            <strong id="cart-total">₦0</strong>
+                        </div>
+                        <a href="checkout.html" class="btn btn-primary btn-full">Proceed to Checkout</a>
+                    </div>
+                    <div class="order-tracker">
+                        <h4>Track your order</h4>
+                        <p>Enter your order number to view delivery progress.</p>
+                        <div class="tracker-form">
+                            <label class="screen-reader-text" for="track-order-number">Order number</label>
+                            <input id="track-order-number" type="text" placeholder="Enter order number e.g. EBF1234">
+                            <button type="button" id="track-order-btn" class="btn btn-secondary btn-full">Track Order</button>
+                        </div>
+                        <div id="track-status" class="track-status">
+                            <p>Track the delivery status of your order here.</p>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer reveal">
+        <div class="container footer-grid">
+            <div class="footer-brand">
+                <a href="index.html" class="footer-logo">Emerald's <span>Cuisine</span></a>
+                <p>Fast, elegant online ordering with premium menu options and easy checkout.</p>
+            </div>
+            <div class="footer-links">
+                <h3>Quick links</h3>
+                <ul>
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#menu">Menu</a></li>
+                    <li><a href="index.html#about">About</a></li>
+                    <li><a href="checkout.html">Checkout</a></li>
+                </ul>
+            </div>
+            <div class="footer-contact">
+                <h3>Contact</h3>
+                <ul>
+                    <li>📍 Lagos, Nigeria</li>
+                    <li>📞 +234 800 123 4567</li>
+                    <li>✉ hello@emeraldscuisine.com</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 Emerald's Cuisine. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <button id="backToTop" aria-label="Scroll to top"><i class="fa-solid fa-arrow-up"></i></button>
+    <a href="#cart" class="floating-cart" id="floatingCart" aria-label="View your cart">
+        <i class="fa-solid fa-basket-shopping"></i>
+        <span class="floating-cart-count" aria-hidden="true">0</span>
+    </a>
+    <script src="js/script.js"></script>
+    <script type="module" src="js/order.js"></script>
+</body>
+</html>

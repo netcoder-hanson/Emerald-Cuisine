@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Complete your Emerald's Cuisine order with a secure checkout, delivery or pickup options and a clear order confirmation.">
+    <title>Checkout | Emerald's Cuisine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-aX+Eq0KEW5rJ+l+2r5SN0Iio51i8HnSsq8AIDf2mXjBS8I1TYMRt0BfUpaL0c9JwV6uBfAfk57hcmJ4Z8+7ADg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <header id="header" class="site-header">
+        <div class="container header-inner">
+            <a href="index.html" class="logo" aria-label="Emerald's Cuisine home">
+                <span>Emerald's</span>
+                <small>Cuisine</small>
+            </a>
+            <nav class="primary-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#menu">Menu</a></li>
+                    <li><a href="index.html#about">About</a></li>
+                    <li><a href="index.html#reservations">Reservations</a></li>
+                    <li><a href="index.html#gallery">Gallery</a></li>
+                    <li><a href="index.html#contact">Contact</a></li>
+                    <li><a href="order.html" class="nav-cta">Order Now</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <a href="order.html" class="btn btn-secondary">Continue Shopping</a>
+                <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+    <div class="nav-overlay"></div>
+
+    <main id="main-content">
+        <section class="page-hero checkout-hero reveal">
+            <div class="container hero-grid">
+                <div class="hero-copy">
+                    <span class="eyebrow">Checkout</span>
+                    <h1>Secure your order and complete your dining plans.</h1>
+                    <p>Enter your details to confirm delivery or pickup with payment options tailored to your preference.</p>
+                </div>
+                <div class="hero-media checkout-hero-image">
+                    <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=1000&q=80" alt="Checkout and payment process">
+                </div>
+            </div>
+        </section>
+
+        <section class="checkout-section reveal">
+            <div class="container checkout-grid">
+                <div class="checkout-card">
+                    <div class="section-header">
+                        <span class="eyebrow">Customer details</span>
+                        <h2>Customer and delivery information</h2>
+                    </div>
+                    <form class="checkout-form" novalidate>
+                        <div class="form-grid">
+                            <label>
+                                Full name
+                                <input type="text" name="fullName" placeholder="Your full name" required>
+                            </label>
+                            <label>
+                                Phone number
+                                <input type="tel" name="phone" placeholder="+234 800 123 4567" required>
+                            </label>
+                            <label>
+                                Email address
+                                <input type="email" name="email" placeholder="you@example.com" required>
+                            </label>
+                            <label>
+                                Delivery address
+                                <input type="text" name="address" placeholder="Street, city, state" required>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <h3>Delivery method</h3>
+                            <div class="radio-grid">
+                                <label><input type="radio" name="deliveryType" value="delivery" checked>Delivery</label>
+                                <label><input type="radio" name="deliveryType" value="pickup">Pickup</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <h3>Payment method</h3>
+                            <div class="radio-grid">
+                                <label><input type="radio" name="paymentMethod" value="delivery" checked>Pay on Delivery</label>
+                                <label><input type="radio" name="paymentMethod" value="card">Card Payment</label>
+                            </div>
+                        </div>
+                        <div class="form-message" aria-live="polite"></div>
+                        <button type="submit" class="btn btn-primary btn-full">Submit Order</button>
+                    </form>
+                </div>
+
+                <aside class="checkout-summary">
+                    <div class="section-header">
+                        <span class="eyebrow">Order summary</span>
+                        <h2>Your current cart</h2>
+                    </div>
+                    <div class="summary-items"></div>
+                    <div class="summary-totals">
+                        <div class="summary-row"><span>Subtotal</span><strong id="summary-subtotal">₦0</strong></div>
+                        <div class="summary-row"><span>Delivery fee</span><strong id="summary-delivery">₦1,500</strong></div>
+                        <div class="summary-row"><span>VAT (7.5%)</span><strong id="summary-vat">₦0</strong></div>
+                        <div class="summary-total"><span>Total</span><strong id="summary-total">₦0</strong></div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <section class="confirmation-panel reveal" aria-live="polite">
+            <div class="container confirmation-card hidden">
+                <span class="eyebrow">Order confirmed</span>
+                <h2>Thank you for your order.</h2>
+                <p>Your order is being prepared. Here are the details:</p>
+                <div class="confirmation-details">
+                    <div><strong>Order number:</strong> <span id="confirmation-number"></span></div>
+                    <div><strong>Estimated delivery:</strong> <span id="confirmation-time"></span></div>
+                    <div><strong>Name:</strong> <span id="confirmation-name"></span></div>
+                    <div><strong>Phone:</strong> <span id="confirmation-phone"></span></div>
+                    <div><strong>Email:</strong> <span id="confirmation-email"></span></div>
+                    <div><strong>Address:</strong> <span id="confirmation-address"></span></div>
+                </div>
+                <div class="confirmation-items" id="confirmation-items"></div>
+                <div class="confirmation-total"><strong>Total paid:</strong> <span id="confirmation-total"></span></div>
+                <a href="index.html" class="btn btn-secondary">Return to homepage</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer reveal">
+        <div class="container footer-grid">
+            <div class="footer-brand">
+                <a href="index.html" class="footer-logo">Emerald's <span>Cuisine</span></a>
+                <p>Complete your order with a secure checkout and confirmation summary.</p>
+            </div>
+            <div class="footer-links">
+                <h3>Quick links</h3>
+                <ul>
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#menu">Menu</a></li>
+                    <li><a href="order.html">Order</a></li>
+                </ul>
+            </div>
+            <div class="footer-contact">
+                <h3>Contact</h3>
+                <ul>
+                    <li>📍 Lagos, Nigeria</li>
+                    <li>📞 +234 800 123 4567</li>
+                    <li>✉ hello@emeraldscuisine.com</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 Emerald's Cuisine. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <button id="backToTop" aria-label="Scroll to top"><i class="fa-solid fa-arrow-up"></i></button>
+
+    <script src="js/script.js"></script>
+    <script type="module" src="js/checkout.js"></script>
+</body>
+</html>

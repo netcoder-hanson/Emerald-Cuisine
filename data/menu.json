@@ -1,0 +1,713 @@
+[
+    {
+        "id": "breakfast1",
+        "name": "Custard or Akamu Breakfast",
+        "category": "breakfast",
+        "description": "Creamy pap with bread, akara, milk and sweet brown sugar or honey.",
+        "price": 8500,
+        "rating": 4.6,
+        "image": "images/categories/akara & pap.jpg"
+    },
+    {
+        "id": "breakfast2",
+        "name": "Full English Breakfast",
+        "category": "breakfast",
+        "description": "Eggs, sausage, beans, grilled tomato and toast for a hearty morning.",
+        "price": 16000,
+        "rating": 4.7,
+        "image": "images/categories/Eggs, sausage, beans, grilled tomato and toast.jpg"
+    },
+    {
+        "id": "breakfast3",
+        "name": "Quick Oats with Akara",
+        "category": "breakfast",
+        "description": "Oats with akara, scrambled egg, milk and a drizzle of honey.",
+        "price": 8800,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "breakfast4",
+        "name": "Regular Noodles with Eggs",
+        "category": "breakfast",
+        "description": "Comforting noodles dressed with eggs and mild spices.",
+        "price": 4500,
+        "rating": 4.3,
+        "image": "https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&w=900&q=80"
+    },
+    {
+        "id": "breakfast5",
+        "name": "Special Moi Moi Platter",
+        "category": "breakfast",
+        "description": "Moi moi with eggs, smoked Titus fish, sausage and grilled chicken.",
+        "price": 7000,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "breakfast6",
+        "name": "Yam and Egg Sauce",
+        "category": "breakfast",
+        "description": "Soft yam served with rich egg sauce and spicy garnish.",
+        "price": 7000,
+        "rating": 4.4,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian1",
+        "name": "Abacha with Fried Fish",
+        "category": "nigerian",
+        "description": "African salad made with shredded cassava, spices and crispy fish.",
+        "price": 10500,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian2",
+        "name": "Bitter Leaf Soup with Chicken",
+        "category": "nigerian",
+        "description": "Traditional bitter leaf soup simmered with chicken or beef.",
+        "price": 6500,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian3",
+        "name": "Coconut Rice with Chicken & Plantain",
+        "category": "nigerian",
+        "description": "Fragrant coconut rice paired with roast chicken and ripe plantain.",
+        "price": 10000,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian4",
+        "name": "Eforiro with Smoked Fish",
+        "category": "nigerian",
+        "description": "Rich leafy stew cooked with smoked fish and premium spices.",
+        "price": 6500,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian5",
+        "name": "Egusi with Chicken",
+        "category": "nigerian",
+        "description": "Creamy melon-seed soup served with tender chicken and swallow.",
+        "price": 5500,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian6",
+        "name": "Ofada Rice with Asun Goatmeat",
+        "category": "nigerian",
+        "description": "Local ofada rice served with fiery asun goat and stew.",
+        "price": 12000,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian7",
+        "name": "Okpa",
+        "category": "nigerian",
+        "description": "Steamed bambara nut pudding with a delicious traditional twist.",
+        "price": 4000,
+        "rating": 4.2,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian8",
+        "name": "Plantain with Smoked Fish Sauce",
+        "category": "nigerian",
+        "description": "Sweet plantain served with rich smoked fish sauce.",
+        "price": 8500,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian9",
+        "name": "Porridge Beans with Fried Yam",
+        "category": "nigerian",
+        "description": "Hearty beans porridge served with fried yam and Titus fish.",
+        "price": 9000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian10",
+        "name": "Ukwa with Dry Fish",
+        "category": "nigerian",
+        "description": "African breadfruit porridge cooked with dry fish and spices.",
+        "price": 10000,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian11",
+        "name": "Unripe Plantain Porridge",
+        "category": "nigerian",
+        "description": "Savory plantain porridge slow-cooked with dry fish and spices.",
+        "price": 8500,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian12",
+        "name": "Yam Porridge with Dry Fish",
+        "category": "nigerian",
+        "description": "Comforting yam porridge with aromatic dry fish and herbs.",
+        "price": 9000,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian13",
+        "name": "Ram Suya Special Rice",
+        "category": "nigerian",
+        "description": "Suya-spiced rice topped with tender ram and fresh vegetables.",
+        "price": 10000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian14",
+        "name": "Rice & Beans with Banger Stew",
+        "category": "nigerian",
+        "description": "Classic rice and beans served with rich banger stew.",
+        "price": 10000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian15",
+        "name": "Smokey Jollof with Chicken & Plantain",
+        "category": "nigerian",
+        "description": "Signature jollof rice with grilled chicken and fried plantain.",
+        "price": 8500,
+        "rating": 4.9,
+        "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian16",
+        "name": "Special Stir-Fry Nigerian Noodles",
+        "category": "nigerian",
+        "description": "Noodles stir-fried with chicken, sausage, vegetables and egg.",
+        "price": 8500,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&w=900&q=80"
+    },
+    {
+        "id": "nigerian17",
+        "name": "White Rice & Stew with Chicken",
+        "category": "nigerian",
+        "description": "Steamed rice served with rich tomato stew and tender chicken.",
+        "price": 8500,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&w=900&q=80"
+    },
+    {
+        "id": "pasta1",
+        "name": "Alfredo Penny Pasta with Lemon Chicken",
+        "category": "pasta",
+        "description": "Creamy pasta tossed with lemon butter chicken.",
+        "price": 13000,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&w=900&q=80"
+    },
+    {
+        "id": "pasta2",
+        "name": "Chicken Chow Mein",
+        "category": "pasta",
+        "description": "Stir-fried noodles with chicken, vegetables and house sauce.",
+        "price": 10000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "pasta3",
+        "name": "Chicken Yakisoba Noodles",
+        "category": "pasta",
+        "description": "Japanese-style noodles with chicken and mixed vegetables.",
+        "price": 10000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&w=900&q=80"
+    },
+    {
+        "id": "pasta4",
+        "name": "Coconut Pasta with Chicken",
+        "category": "pasta",
+        "description": "Creamy coconut pasta served with tender chicken.",
+        "price": 11000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "pasta5",
+        "name": "Spaghetti Aglio e Olio with Shrimp",
+        "category": "pasta",
+        "description": "Garlic spaghetti with shrimp and fresh herbs.",
+        "price": 9700,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&w=900&q=80"
+    },
+    {
+        "id": "pasta6",
+        "name": "Spaghetti Bolognese with Minced Beef",
+        "category": "pasta",
+        "description": "Classic Bolognese sauce over al dente spaghetti.",
+        "price": 10700,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills1",
+        "name": "Beef Burger with Fries",
+        "category": "grills",
+        "description": "Juicy beef burger served with crispy fries.",
+        "price": 6500,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills2",
+        "name": "Beef in Black Bean Sauce",
+        "category": "grills",
+        "description": "Tender beef with broccoli and steamed rice.",
+        "price": 13000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills3",
+        "name": "Full Chicken Suya with Fries",
+        "category": "grills",
+        "description": "Spicy suya chicken served with fries and salad.",
+        "price": 15500,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills4",
+        "name": "Goatmeat Asun",
+        "category": "grills",
+        "description": "Smoky goat meat suya with signature pepper seasoning.",
+        "price": 3000,
+        "rating": 4.4,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills5",
+        "name": "Jumbo Pepper Turkey",
+        "category": "grills",
+        "description": "Large turkey breast glazed in spicy pepper sauce.",
+        "price": 8000,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills6",
+        "name": "Mixed Seafood Grill",
+        "category": "grills",
+        "description": "Grilled seafood platter with prawns, fish and vegetables.",
+        "price": 15000,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills7",
+        "name": "Pepper Chicken Steamed",
+        "category": "grills",
+        "description": "Steamed chicken in a fragrant pepper broth.",
+        "price": 10500,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills8",
+        "name": "Peppered Chicken",
+        "category": "grills",
+        "description": "Juicy chicken spiced with blended pepper and served with fries.",
+        "price": 3500,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills9",
+        "name": "Pineapple Fried Rice with Prawns",
+        "category": "grills",
+        "description": "Sweet pineapple rice mixed with prawns, chicken and plantain.",
+        "price": 13000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills10",
+        "name": "Salmon Steak with Asparagus",
+        "category": "grills",
+        "description": "Pan-seared salmon steak with asparagus and lemon butter.",
+        "price": 25000,
+        "rating": 4.9,
+        "image": "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills11",
+        "name": "Special Barbecue Fish",
+        "category": "grills",
+        "description": "Barbecue fish with grilled veggies and fries.",
+        "price": 14000,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "grills12",
+        "name": "T-bone Steak with Potato Wedges",
+        "category": "grills",
+        "description": "Garlic rosemary steak with wedges and sautéed vegetables.",
+        "price": 13500,
+        "rating": 4.9,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups1",
+        "name": "Catfish Pepper Soup",
+        "category": "soups",
+        "description": "Spicy catfish broth seasoned with local herbs.",
+        "price": 10000,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups2",
+        "name": "Chicken Pepper Soup",
+        "category": "soups",
+        "description": "Warm chicken broth with peppery spice and herbs.",
+        "price": 10000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups3",
+        "name": "Fufu",
+        "category": "soups",
+        "description": "Soft, pillowy fufu to pair with your favourite soup.",
+        "price": 2500,
+        "rating": 4.3,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups4",
+        "name": "Garri",
+        "category": "soups",
+        "description": "Classic garri to go with rich soups and stews.",
+        "price": 2500,
+        "rating": 4.1,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups5",
+        "name": "Goat Meat Pepper Soup",
+        "category": "soups",
+        "description": "Rich pepper soup with tender goat meat.",
+        "price": 10500,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups6",
+        "name": "Nkwobi Isi Ewu",
+        "category": "soups",
+        "description": "Spicy goat head delicacy served in rich palm butter sauce.",
+        "price": 12000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups7",
+        "name": "Oha Soup with Dry Fish",
+        "category": "soups",
+        "description": "Traditional oha soup served with dry fish and herbs.",
+        "price": 7000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups8",
+        "name": "Okor Soup",
+        "category": "soups",
+        "description": "Okor soup cooked with rich palm oil and local spices.",
+        "price": 9500,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups9",
+        "name": "Pounded Yam",
+        "category": "soups",
+        "description": "Smooth pounded yam to enjoy with hearty soups.",
+        "price": 3500,
+        "rating": 4.4,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups10",
+        "name": "Semovita",
+        "category": "soups",
+        "description": "Soft semovita served alongside warm soups.",
+        "price": 3000,
+        "rating": 4.3,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups11",
+        "name": "Vegetable Soup with Chicken",
+        "category": "soups",
+        "description": "Healthy vegetable soup cooked with chicken or beef.",
+        "price": 5500,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups12",
+        "name": "Wheat Meal",
+        "category": "soups",
+        "description": "Wheat meal served as a tasty swallow side.",
+        "price": 3000,
+        "rating": 4.2,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "soups13",
+        "name": "White Soup (Ofensala)",
+        "category": "soups",
+        "description": "Creamy white soup served with funge or swallow.",
+        "price": 8000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80"
+    },
+    {
+        "id": "salads1",
+        "name": "Healthy Salad",
+        "category": "salads",
+        "description": "Fresh greens with crunchy toppings and zesty dressing.",
+        "price": 7000,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?auto=format&w=900&q=80"
+    },
+    {
+        "id": "salads2",
+        "name": "Turkey Avocado Salad",
+        "category": "salads",
+        "description": "Mixed greens with turkey, avocado, nuts and citrus dressing.",
+        "price": 15000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?auto=format&w=900&q=80"
+    },
+    {
+        "id": "salads3",
+        "name": "Waldorf Salad",
+        "category": "salads",
+        "description": "Classic Waldorf salad with apples, nuts and creamy dressing.",
+        "price": 12650,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?auto=format&w=900&q=80"
+    },
+    {
+        "id": "dessert1",
+        "name": "Chocolate Brownies",
+        "category": "desserts",
+        "description": "Warm brownies served with caramel and fresh berries.",
+        "price": 3000,
+        "rating": 4.9,
+        "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80"
+    },
+    {
+        "id": "dessert2",
+        "name": "Cookies 6pcs",
+        "category": "desserts",
+        "description": "Fresh baked cookies served in a shareable six-piece pack.",
+        "price": 6000,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80"
+    },
+    {
+        "id": "dessert3",
+        "name": "Ice Cream 3 Scoops",
+        "category": "desserts",
+        "description": "Three scoops of premium ice cream with your choice of sauce.",
+        "price": 5500,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80"
+    },
+    {
+        "id": "dessert4",
+        "name": "Parfait",
+        "category": "desserts",
+        "description": "Layered parfait with fresh fruit, granola and cream.",
+        "price": 7000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80"
+    },
+    {
+        "id": "dessert5",
+        "name": "Red Velvet Cake",
+        "category": "desserts",
+        "description": "Moist red velvet cake with smooth cream cheese frosting.",
+        "price": 3000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80"
+    },
+    {
+        "id": "dessert6",
+        "name": "Small Chops Selection",
+        "category": "desserts",
+        "description": "Spring rolls, samosa, kebab, drumsticks, puff puff and moneybags.",
+        "price": 15000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "dessert7",
+        "name": "Popcorn with Powdered Milk",
+        "category": "desserts",
+        "description": "Sweet popcorn tossed with powdered milk and spice.",
+        "price": 3500,
+        "rating": 4.4,
+        "image": "https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink1",
+        "name": "Arabian Tea",
+        "category": "drinks",
+        "description": "Aromatic Arabian tea served hot for a soothing experience.",
+        "price": 7000,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink2",
+        "name": "Bubble Tea",
+        "category": "drinks",
+        "description": "Sweet bubble tea with chewy tapioca pearls.",
+        "price": 10000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink3",
+        "name": "Fresh Carrot & Pawpaw Juice",
+        "category": "drinks",
+        "description": "Vitamin-rich juice blend for glowing skin.",
+        "price": 5000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink4",
+        "name": "Orange Juice with Ginger",
+        "category": "drinks",
+        "description": "Fresh orange juice spiced with ginger and mint.",
+        "price": 3500,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink5",
+        "name": "Pineapple Juice with Ginger",
+        "category": "drinks",
+        "description": "Sweet pineapple juice blended with ginger and mint.",
+        "price": 3500,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink6",
+        "name": "Fresh Watermelon Juice",
+        "category": "drinks",
+        "description": "Hydrating watermelon juice served cold.",
+        "price": 3500,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink7",
+        "name": "Long Island Cocktail",
+        "category": "drinks",
+        "description": "Classic cocktail with bold citrus and spirit blend.",
+        "price": 9000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink8",
+        "name": "Sex on the Beach Cocktail",
+        "category": "drinks",
+        "description": "Sweet tropical cocktail with peach and cranberry.",
+        "price": 8000,
+        "rating": 4.6,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink9",
+        "name": "Soju",
+        "category": "drinks",
+        "description": "Smooth soju served chilled for a premium sip.",
+        "price": 10000,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink10",
+        "name": "Soya Milk",
+        "category": "drinks",
+        "description": "Creamy soya milk served chilled with a touch of sweet spice.",
+        "price": 3500,
+        "rating": 4.4,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink11",
+        "name": "Virgin Mojito Mocktail",
+        "category": "drinks",
+        "description": "Refreshing mint mojito without alcohol.",
+        "price": 8000,
+        "rating": 4.7,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "drink12",
+        "name": "Zobo with Ginger & Pineapple",
+        "category": "drinks",
+        "description": "Chilled hibiscus drink spiced with ginger and pineapple.",
+        "price": 3500,
+        "rating": 4.8,
+        "image": "https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80"
+    },
+    {
+        "id": "side1",
+        "name": "Beef Side",
+        "category": "sides",
+        "description": "Grilled beef side perfect for adding to any meal.",
+        "price": 2000,
+        "rating": 4.4,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "side2",
+        "name": "Classic Coleslaw",
+        "category": "sides",
+        "description": "Creamy coleslaw with crunchy cabbage and carrots.",
+        "price": 1500,
+        "rating": 4.3,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    },
+    {
+        "id": "side3",
+        "name": "Titus Fish Side",
+        "category": "sides",
+        "description": "Crispy Titus fish served as a rich add-on.",
+        "price": 2500,
+        "rating": 4.5,
+        "image": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80"
+    }
+]
