@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Track your Emerald's Cuisine delivery live with a map, rider location and delivery status.">
+    <title>Track Order | Emerald's Cuisine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-aX+Eq0KEW5rJ+l+2r5SN0Iio51i8HnSsq8AIDf2mXjBS8I1TYMRt0BfUpaL0c9JwV6uBfAfk57hcmJ4Z8+7ADg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <header id="header" class="site-header">
+        <div class="container header-inner">
+            <a href="index.html" class="logo" aria-label="Emerald's Cuisine home">
+                <span>Emerald's</span>
+                <small>Cuisine</small>
+            </a>
+            <nav class="primary-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#menu">Menu</a></li>
+                    <li><a href="index.html#about">About</a></li>
+                    <li><a href="index.html#reservations">Reservations</a></li>
+                    <li><a href="index.html#gallery">Gallery</a></li>
+                    <li><a href="index.html#contact">Contact</a></li>
+                    <li><a href="order.html" class="nav-cta">Order Now</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <a href="order.html" class="btn btn-secondary">Order Now</a>
+                <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+    <div class="nav-overlay"></div>
+
+    <main id="main-content">
+        <section class="page-hero track-hero reveal">
+            <div class="container hero-copy">
+                <span class="eyebrow">Live tracking</span>
+                <h1>Follow your order in real time.</h1>
+                <p id="track-hero-order">Loading order...</p>
+            </div>
+        </section>
+
+        <section class="track-section reveal">
+            <div class="container">
+                <div class="track-card" id="track-card">
+                    <p class="menu-empty">We could not find that order. Please check your order number.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer reveal">
+        <div class="container footer-grid">
+            <div class="footer-brand">
+                <a href="index.html" class="footer-logo">Emerald's <span>Cuisine</span></a>
+                <p>Live order tracking with real-time rider updates and delivery estimates.</p>
+            </div>
+            <div class="footer-links">
+                <h3>Quick links</h3>
+                <ul>
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#menu">Menu</a></li>
+                    <li><a href="order.html">Order</a></li>
+                </ul>
+            </div>
+            <div class="footer-contact">
+                <h3>Contact</h3>
+                <ul>
+                    <li>📍 Lagos, Nigeria</li>
+                    <li>📞 +234 800 123 4567</li>
+                    <li>✉ hello@emeraldscuisine.com</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 Emerald's Cuisine. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <button id="backToTop" aria-label="Scroll to top"><i class="fa-solid fa-arrow-up"></i></button>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXJBadbCNI+SCmGIZh3jZxrI0S69nDro5NAqEGTUHnK5A==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="js/script.js"></script>
+    <script type="module" src="js/track.js"></script>
+</body>
+</html>

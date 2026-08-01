@@ -137,6 +137,10 @@
                         <p>Decadent sweets created to finish every meal.</p>
                     </article>
                 </div>
+
+                <div class="category-actions">
+                    <a href="order.html" class="btn btn-outline">View full menu</a>
+                </div>
             </div>
         </section>
 
@@ -354,6 +358,47 @@
             </div>
         </section>
 
+        <section class="reviews section-alt reveal" id="reviews">
+            <div class="container section-inner">
+                <div class="section-header">
+                    <span class="eyebrow">Share your experience</span>
+                    <h2>Recent guest reviews</h2>
+                    <p>Loved your meal? Leave a review to help other guests discover Emerald's Cuisine.</p>
+                </div>
+
+                <div id="reviews-grid" class="reviews-grid" aria-live="polite"></div>
+
+                <form id="review-form" class="review-form" novalidate>
+                    <h3>Leave a review</h3>
+                    <div class="form-grid">
+                        <label>
+                            Your name
+                            <input type="text" name="name" placeholder="Your name" required>
+                        </label>
+                        <label>
+                            Rating
+                            <select name="rating" required>
+                                <option value="" disabled selected>Choose rating</option>
+                                <option value="5">5 - Excellent</option>
+                                <option value="4">4 - Great</option>
+                                <option value="3">3 - Good</option>
+                                <option value="2">2 - Fair</option>
+                                <option value="1">1 - Poor</option>
+                            </select>
+                        </label>
+                    </div>
+                    <label class="full-width">
+                        Review
+                        <textarea name="comment" rows="3" placeholder="How was your meal and service?" required></textarea>
+                    </label>
+                    <div class="modal-actions">
+                        <button type="submit" class="btn btn-primary">Submit review</button>
+                    </div>
+                    <p class="form-message" aria-live="polite"></p>
+                </form>
+            </div>
+        </section>
+
         <section class="gallery reveal" id="gallery">
             <div class="container section-inner">
                 <div class="section-header">
@@ -504,6 +549,8 @@
     </div>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="js/script.js"></script>
+    <script type="module" src="js/home.js"></script>
 </body>
 </html>

@@ -23,7 +23,6 @@ const lightbox = document.querySelector('.lightbox');
 const lightboxClose = document.querySelector('.lightbox-close');
 const galleryItems = document.querySelectorAll('.gallery-item');
 const backToTop = document.getElementById('backToTop');
-const newsletterForm = document.querySelector('.newsletter-form');
 const links = document.querySelectorAll('nav a[href^="#"]');
 const revealElements = document.querySelectorAll('.reveal');
 let lastFocusedElement = null;
@@ -236,19 +235,8 @@ document.addEventListener('keydown', event => {
     }
 });
 
-if (newsletterForm) {
-    newsletterForm.addEventListener('submit', event => {
-        event.preventDefault();
-        const emailInput = newsletterForm.querySelector('input[type="email"]');
-        newsletterForm.querySelectorAll('.form-message').forEach(msg => msg.remove());
-        const message = document.createElement('p');
-        message.className = 'form-message';
-        message.textContent = `Thanks for subscribing, ${emailInput.value}!`;
-        newsletterForm.append(message);
-        setTimeout(() => message.remove(), 4000);
-        newsletterForm.reset();
-    });
-}
+// Newsletter subscription is handled in js/home.js so it can save
+// subscribers via the store (Supabase + localStorage fallback).
 
 // Render Lucide icons if the library is loaded
 if (window.lucide) {

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Emerald's Cuisine admin dashboard - manage menu, categories, promotions and subscribers.">
+    <title>Admin | Emerald's Cuisine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-aX+Eq0KEW5rJ+l+2r5SN0Iio51i8HnSsq8AIDf2mXjBS8I1TYMRt0BfUpaL0c9JwV6uBfAfk57hcmJ4Z8+7ADg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="admin-bar">
+        <a href="index.html" class="admin-logo">Emerald's <span>Cuisine</span></a>
+        <nav class="admin-bar-nav">
+            <a href="index.html">View site</a>
+            <button type="button" id="logout-btn" class="admin-logout">Log out</button>
+        </nav>
+    </header>
+
+    <main id="admin-login" class="admin-view">
+        <form id="login-form" class="admin-card" novalidate>
+            <span class="eyebrow">Admin only</span>
+            <h1>Admin login</h1>
+            <p>Enter the admin password to manage the site.</p>
+            <label>
+                Password
+                <input type="password" name="password" placeholder="Admin password" required>
+            </label>
+            <p class="form-message error" id="login-error" aria-live="polite"></p>
+            <button type="submit" class="btn btn-primary btn-full">Sign in</button>
+            <p class="admin-hint">Default password: admin123 (change it in js/config.js)</p>
+        </form>
+    </main>
+
+    <main id="admin-dashboard" class="admin-view hidden">
+        <div class="admin-container">
+            <p id="admin-config-warning" class="admin-warning hidden">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Supabase is not configured. Admin changes will not persist until you add your keys in <strong>js/config.js</strong>.
+            </p>
+
+            <div class="admin-tabs" role="tablist">
+                <button type="button" class="admin-tab active" data-tab="items" role="tab">Menu items</button>
+                <button type="button" class="admin-tab" data-tab="categories" role="tab">Categories</button>
+                <button type="button" class="admin-tab" data-tab="promotions" role="tab">Promotions</button>
+                <button type="button" class="admin-tab" data-tab="subscribers" role="tab">Subscribers</button>
+                <button type="button" class="admin-tab" data-tab="settings" role="tab">Settings</button>
+            </div>
+
+            <section id="tab-items" class="admin-tab-panel active" role="tabpanel">
+                <div class="admin-panel-head">
+                    <div>
+                        <h2>Menu items</h2>
+                        <p>Add, edit and update the dishes shown on the order page.</p>
+                    </div>
+                    <button type="button" id="add-item" class="btn btn-primary btn-sm">Add item</button>
+                </div>
+                <div id="items-list" class="admin-table-wrap" aria-live="polite"></div>
+                <form id="item-form" class="admin-form hidden" novalidate></form>
+            </section>
+
+            <section id="tab-categories" class="admin-tab-panel" role="tabpanel">
+                <div class="admin-panel-head">
+                    <div>
+                        <h2>Categories</h2>
+                        <p>Manage the category grid on the homepage.</p>
+                    </div>
+                    <button type="button" id="add-category" class="btn btn-primary btn-sm">Add category</button>
+                </div>
+                <div id="categories-list" class="admin-table-wrap" aria-live="polite"></div>
+                <form id="category-form" class="admin-form hidden" novalidate></form>
+            </section>
+
+            <section id="tab-promotions" class="admin-tab-panel" role="tabpanel">
+                <div class="admin-panel-head">
+                    <div>
+                        <h2>Promotions &amp; announcements</h2>
+                        <p>Post offers and send them to newsletter subscribers by email.</p>
+                    </div>
+                    <button type="button" id="add-promotion" class="btn btn-primary btn-sm">Add promotion</button>
+                </div>
+                <div id="promotions-list" class="admin-table-wrap" aria-live="polite"></div>
+                <form id="promotion-form" class="admin-form hidden" novalidate></form>
+            </section>
+
+            <section id="tab-subscribers" class="admin-tab-panel" role="tabpanel">
+                <div class="admin-panel-head">
+                    <div>
+                        <h2>Newsletter subscribers</h2>
+                        <p>People who signed up for email updates.</p>
+                    </div>
+                </div>
+                <div id="subscribers-list" class="admin-table-wrap" aria-live="polite"></div>
+            </section>
+
+            <section id="tab-settings" class="admin-tab-panel" role="tabpanel">
+                <div class="admin-panel-head">
+                    <div>
+                        <h2>Site settings</h2>
+                        <p>Customise homepage text and the promotion banner.</p>
+                    </div>
+                </div>
+                <form id="settings-form" class="admin-form visible" novalidate>
+                    <label>
+                        Hero title
+                        <input type="text" name="hero_title" placeholder="Fresh flavours delivered...">
+                    </label>
+                    <label>
+                        Hero subtitle
+                        <textarea name="hero_subtitle" rows="2" placeholder="Premium menu options..."></textarea>
+                    </label>
+                    <label>
+                        Promotion banner text
+                        <input type="text" name="promo_banner" placeholder="e.g. 10% off your first order">
+                    </label>
+                    <label>
+                        Announcement
+                        <textarea name="announcement" rows="2" placeholder="News or announcements for visitors"></textarea>
+                    </label>
+                    <button type="submit" class="btn btn-primary">Save settings</button>
+                    <p class="form-message" aria-live="polite"></p>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script type="module" src="js/admin.js"></script>
+</body>
+</html>

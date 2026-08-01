@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Your Emerald's Cuisine order has been confirmed. Track your delivery in real time.">
+    <title>Order Confirmed | Emerald's Cuisine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-aX+Eq0KEW5rJ+l+2r5SN0Iio51i8HnSsq8AIDf2mXjBS8I1TYMRt0BfUpaL0c9JwV6uBfAfk57hcmJ4Z8+7ADg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <header id="header" class="site-header">
+        <div class="container header-inner">
+            <a href="index.html" class="logo" aria-label="Emerald's Cuisine home">
+                <span>Emerald's</span>
+                <small>Cuisine</small>
+            </a>
+            <nav class="primary-nav" aria-label="Main navigation">
+                <ul class="nav-links">
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#menu">Menu</a></li>
+                    <li><a href="index.html#about">About</a></li>
+                    <li><a href="index.html#reservations">Reservations</a></li>
+                    <li><a href="index.html#gallery">Gallery</a></li>
+                    <li><a href="index.html#contact">Contact</a></li>
+                    <li><a href="order.html" class="nav-cta">Order Now</a></li>
+                </ul>
+            </nav>
+            <div class="header-actions">
+                <a href="order.html" class="btn btn-secondary">Order More</a>
+                <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+    <div class="nav-overlay"></div>
+
+    <main id="main-content">
+        <section class="confirmation-section reveal">
+            <div class="container confirmation-card success-card">
+                <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <span class="eyebrow">Order confirmed</span>
+                <h1>Thank you, <span id="confirm-name"></span>!</h1>
+                <p class="lead">Your order has been received and is being prepared with care.</p>
+
+                <div class="order-number-box">
+                    <span>Order number</span>
+                    <strong id="confirm-number"></strong>
+                </div>
+
+                <div class="confirmation-details">
+                    <div><strong>Estimated time:</strong> <span id="confirm-time"></span></div>
+                    <div><strong>Delivery to:</strong> <span id="confirm-address"></span></div>
+                    <div><strong>Phone:</strong> <span id="confirm-phone"></span></div>
+                    <div><strong>Email:</strong> <span id="confirm-email"></span></div>
+                    <div><strong>Payment:</strong> <span id="confirm-payment"></span></div>
+                </div>
+
+                <div class="confirmation-items" id="confirm-items"></div>
+                <div class="confirmation-total"><strong>Total paid:</strong> <span id="confirm-total"></span></div>
+
+                <div class="confirmation-actions">
+                    <a id="track-btn" href="#" class="btn btn-primary">Track my order</a>
+                    <a href="order.html" class="btn btn-secondary">Order more</a>
+                </div>
+                <p class="confirmation-note">A confirmation email has been sent to your inbox.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer reveal">
+        <div class="container footer-grid">
+            <div class="footer-brand">
+                <a href="index.html" class="footer-logo">Emerald's <span>Cuisine</span></a>
+                <p>Your order is on its way. Track it live and enjoy a premium dining experience.</p>
+            </div>
+            <div class="footer-links">
+                <h3>Quick links</h3>
+                <ul>
+                    <li><a href="index.html#home">Home</a></li>
+                    <li><a href="index.html#menu">Menu</a></li>
+                    <li><a href="order.html">Order</a></li>
+                </ul>
+            </div>
+            <div class="footer-contact">
+                <h3>Contact</h3>
+                <ul>
+                    <li>📍 Lagos, Nigeria</li>
+                    <li>📞 +234 800 123 4567</li>
+                    <li>✉ hello@emeraldscuisine.com</li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>© 2026 Emerald's Cuisine. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <button id="backToTop" aria-label="Scroll to top"><i class="fa-solid fa-arrow-up"></i></button>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="js/script.js"></script>
+    <script type="module" src="js/confirmation.js"></script>
+</body>
+</html>
