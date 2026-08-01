@@ -105,6 +105,7 @@ section {
     background: rgba(255, 255, 255, 0.94);
     border-bottom: 1px solid rgba(17, 17, 17, 0.05);
     z-index: 1000;
+    -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
 }
 
@@ -1269,7 +1270,12 @@ section {
 .scroll-panel {
     overflow-y: auto;
     overscroll-behavior: contain;
-    scrollbar-gutter: stable;
+}
+
+@supports (scrollbar-gutter: stable) {
+    .scroll-panel {
+        scrollbar-gutter: stable;
+    }
 }
 
 @media (min-width: 1101px) {
