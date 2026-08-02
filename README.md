@@ -18,6 +18,7 @@ Built as a **static site with no framework and no build step** — plain HTML, C
 - **Customer accounts** — sign in / create an account on any page; sessions are saved to Supabase (or localStorage in demo mode) and checkout auto-fills your name and email
 - **"Keep me signed in"** — ticking this on the sign-in modal keeps you logged in across browser restarts (persistent session); leaving it unticked stores the session only for the current tab/session
 - **Admin dashboard** — manage menu items & categories, view orders, manage subscribers, view/delete registered customers, send promo emails, and edit site text (announcement, hero)
+- **Admin dashboard** — manage menu items & categories, view orders, manage subscribers, send promo emails, and edit site text (announcement, hero)
 
 ## Demo mode
 
@@ -82,6 +83,7 @@ Then visit `http://localhost:8000`.
 4. In the Supabase **SQL Editor**, run the schema in the comment block at the bottom of `js/config.js` to create the tables:
 
    `categories`, `customers`, `menu_items`, `orders`, `promotions`, `subscribers`, `reviews`, `settings`
+   `categories`, `menu_items`, `orders`, `promotions`, `subscribers`, `reviews`, `settings`
 
 5. Enable **Row Level Security** on each table and add open (demo) policies as described in the file — the tables are configured for learning/demo purposes; use stricter policies for a public production site.
 
