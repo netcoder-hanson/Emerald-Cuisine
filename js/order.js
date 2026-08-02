@@ -1,5 +1,6 @@
 import { getCart, saveCart, formatPrice, calculateTotals, getCartItemCount, escapeHtml } from './utils/cart.js';
 import { getMenuItems } from './utils/menu.js';
+import { getCurrentUser, loginOrRegister } from './utils/auth.js';
 
 let menuItems = [];
 
@@ -80,6 +81,100 @@ const cartPanel = document.getElementById('cart');
 const cartCloseButton = document.querySelector('.cart-close');
 const cartTriggerButton = document.querySelector('.cart-trigger');
 let lastCartFocused = null;
+
+function buildAuthGate() {
+    const existingGate = document.getElementById('checkout-auth-gate');
+    if (existingGate) return existingGate;
+
+    const gate = document.createElement('div');
+    gate.id = 'checkout-auth-gate';
+    gate.className = 'modal-overlay active';
+    gate.setAttribute('aria-hidden', 'true');
+    gate.innerHTML = `
+        <div class="checkout-auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-gate-title">
+            <div class="section-header">
+                <span class="eyebrow">Account required</span>
+                <h3 id="auth-gate-title">Continue to checkout</h3>
+            </div>
+            <p class="auth-gate-copy">Please sign in or create an account to continue to checkout.</p>
+            <form id="checkout-auth-form" class="checkout-auth-form">
+                <label>
+                    Full name
+                    <input type="text" name="name" placeholder="Your full name">
+                </label>
+                <label>
+                    Email address
+                    <input type="email" name="email" placeholder="you@example.com" required>
+                </label>
+                <label>
+                    Password
+                    <input type="password" name="password" placeholder="Choose a password" required>
+                </label>
+                <label class="checkbox-row">
+                    <input type="checkbox" name="rememberMe" value="true">
+                    Keep me signed in
+                </label>
+                <div class="auth-gate-actions">
+                    <button type="submit" class="btn btn-primary btn-full">Continue</button>
+                    <button type="button" id="close-auth-gate" class="btn btn-secondary btn-full">Cancel</button>
+                </div>
+                <p id="auth-error" class="form-message" aria-live="polite"></p>
+            </form>
+        </div>
+    `;
+
+    document.body.appendChild(gate);
+    return gate;
+}
+
+function openAuthGate() {
+    const gate = buildAuthGate();
+    gate.style.display = 'flex';
+    gate.setAttribute('aria-hidden', 'false');
+    gate.querySelector('input[name="email"]')?.focus();
+}
+
+function closeAuthGate() {
+    const gate = document.getElementById('checkout-auth-gate');
+    if (!gate) return;
+    gate.style.display = 'none';
+    gate.setAttribute('aria-hidden', 'true');
+}
+
+function attachAuthGateEvents() {
+    const gate = document.getElementById('checkout-auth-gate');
+    if (!gate) return;
+
+    gate.querySelector('#close-auth-gate')?.addEventListener('click', closeAuthGate);
+
+    gate.querySelector('#checkout-auth-form')?.addEventListener('submit', async event => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const errorBox = document.getElementById('auth-error');
+        const data = new FormData(form);
+
+        if (errorBox) {
+            errorBox.textContent = '';
+            errorBox.classList.remove('error');
+        }
+
+        try {
+            await loginOrRegister({
+                name: data.get('name'),
+                email: data.get('email'),
+                password: data.get('password'),
+                rememberMe: data.get('rememberMe') === 'true'
+            });
+            closeAuthGate();
+            window.location.href = 'checkout.html';
+        } catch (error) {
+            if (errorBox) {
+                errorBox.textContent = error.message;
+                errorBox.classList.add('error');
+            }
+        }
+    });
+}
 
 function isMobileCartModal() {
     return window.matchMedia('(max-width: 1024px)').matches;
@@ -272,6 +367,17 @@ document.querySelectorAll('.cart-trigger, #floatingCart, a[href="#cart"]').forEa
         }
     });
 });
+
+const checkoutButton = document.querySelector('.cart-summary a[href="checkout.html"]');
+if (checkoutButton) {
+    checkoutButton.addEventListener('click', event => {
+        if (!getCurrentUser()) {
+            event.preventDefault();
+            openAuthGate();
+            attachAuthGateEvents();
+        }
+    });
+}
 
 if (cartCloseButton) {
     cartCloseButton.addEventListener('click', closeCartModal);
