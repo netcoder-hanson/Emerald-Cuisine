@@ -82,7 +82,11 @@ const cartTriggerButton = document.querySelector('.cart-trigger');
 let lastCartFocused = null;
 
 function isMobileCartModal() {
+<<<<<<< HEAD
+    return window.matchMedia('(max-width: 1024px)').matches;
+=======
     return window.matchMedia('(max-width: 1100px)').matches;
+>>>>>>> dev
 }
 
 function openCartModal() {
