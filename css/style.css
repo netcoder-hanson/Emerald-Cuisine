@@ -1113,10 +1113,14 @@ section {
 }
 
 .order-hero.reveal,
-.order-section.reveal,
 .footer.reveal {
     opacity: 1 !important;
     transform: translateY(0) !important;
+}
+
+.order-section.reveal {
+    opacity: 1 !important;
+    transform: none !important;
 }
 
 .reservation-modal,
