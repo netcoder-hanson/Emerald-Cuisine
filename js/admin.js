@@ -1,15 +1,21 @@
 import CONFIG from './config.js';
 import { isSupabaseConfigured } from './utils/supabase.js';
-import { fetchRows, insertRow, updateRow, deleteRow, getSubscribers, removeSubscriber } from './utils/store.js';
+import {
+    fetchRows, insertRow, updateRow, deleteRow, countRows, fetchRowsIn,
+    uploadImage, invokeEdgeFunction, toCSV, downloadBlob,
+    getSubscribers, removeSubscriber, getSetting
+} from './utils/store.js';
 import { sendPromoEmails } from './utils/email.js';
 import { CATEGORY_SLUGS } from './utils/menu.js';
-import { escapeHtml, formatPrice } from './utils/cart.js';
+import { escapeHtml } from './utils/cart.js';
 import { getAdminCredentials, saveAdminCredentials, isAdminCredentials } from './utils/admin.js';
 
 const loginView = document.getElementById('admin-login');
 const dashboard = document.getElementById('admin-dashboard');
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
+
+// ---------------- Auth ----------------
 
 function isLoggedIn() {
     return sessionStorage.getItem('emeraldAdmin') === '1';
@@ -20,22 +26,6 @@ function showDashboard() {
     dashboard.classList.remove('hidden');
     initDashboard();
     initAdminCredentialsForm();
-}
-
-if (isLoggedIn()) {
-    showDashboard();
-} else {
-    loginForm.addEventListener('submit', event => {
-        event.preventDefault();
-        const username = loginForm.querySelector('input[name="username"]').value;
-        const password = loginForm.querySelector('input[name="password"]').value;
-        if (isAdminCredentials(username, password)) {
-            sessionStorage.setItem('emeraldAdmin', '1');
-            showDashboard();
-        } else {
-            loginError.textContent = 'Incorrect username or password. Please try again.';
-        }
-    });
 }
 
 document.getElementById('logout-btn').addEventListener('click', () => {
@@ -55,399 +45,1509 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
     });
 });
 
-function initDashboard() {
-    if (!isSupabaseConfigured()) {
-        document.getElementById('admin-config-warning').classList.remove('hidden');
+// ---------------- Shared UI: modal + toast ----------------
+
+const adminModal = document.getElementById('admin-modal');
+const adminModalTitle = document.getElementById('admin-modal-title');
+const adminModalBody = document.getElementById('admin-modal-body');
+const adminToast = document.getElementById('admin-toast');
+let lastModalFocus = null;
+let modalCloseGuard = null;
+
+function openModal(title, bodyHtml) {
+    if (!adminModal) return;
+    adminModalTitle.textContent = title;
+    adminModalBody.innerHTML = bodyHtml;
+    // Render any Lucide icons inside the dynamically injected modal content.
+    if (window.lucide) window.lucide.createIcons();
+    adminModal.classList.add('open');
+    adminModal.setAttribute('aria-hidden', 'false');
+    lastModalFocus = document.activeElement;
+    document.body.classList.add('modal-open');
+    modalCloseGuard = null;
+    const first = adminModal.querySelector('input, select, textarea, button');
+    if (first) first.focus();
+}
+
+function closeModal() {
+    if (!adminModal) return;
+    adminModal.classList.remove('open');
+    adminModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    if (lastModalFocus instanceof HTMLElement) lastModalFocus.focus();
+    lastModalFocus = null;
+    modalCloseGuard = null;
+}
+
+function requestCloseModal() {
+    if (modalCloseGuard && !modalCloseGuard()) return;
+    closeModal();
+}
+
+if (adminModal) {
+    // Delegated listener: buttons injected later via openModal() bodyHtml
+    // are matched here too (event delegation), so Cancel/dialog-close
+    // buttons inside dynamically built forms always work.
+    adminModal.addEventListener('click', event => {
+        if (event.target.closest('[data-close-modal]')) {
+            requestCloseModal();
+            return;
+        }
+        if (event.target === adminModal) requestCloseModal();
+    });
+}
+
+document.addEventListener('keydown', event => {
+    if (!adminModal || !adminModal.classList.contains('open')) return;
+    if (event.key === 'Escape') {
+        requestCloseModal();
+        return;
     }
-    renderItems();
-    renderCategories();
-    renderPromotions();
-    renderSubscribers();
-    renderCustomers();
-    renderSettings();
+    if (event.key === 'Tab') {
+        const focusable = [...adminModal.querySelectorAll('button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+            .filter(el => !el.disabled && el.offsetParent !== null);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+});
+
+let toastTimer = null;
+function showToast(message, type = 'success') {
+    if (!adminToast) return;
+    adminToast.textContent = message;
+    adminToast.className = `admin-toast show ${type}`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        adminToast.classList.remove('show');
+    }, 4200);
+}
+
+// ---------------- Form validation helpers ----------------
+
+function setFieldError(form, name, message) {
+    const input = form.querySelector(`[name="${name}"]`);
+    if (!input) return;
+    input.classList.add('field-error');
+    const existing = form.querySelector(`[data-error-for="${name}"]`);
+    if (existing) existing.remove();
+    const err = document.createElement('p');
+    err.className = 'admin-field-error';
+    err.setAttribute('data-error-for', name);
+    err.textContent = message;
+    input.insertAdjacentElement('afterend', err);
+}
+
+function clearFieldErrors(form) {
+    form.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+    form.querySelectorAll('.admin-field-error').forEach(el => el.remove());
+}
+
+// ---------------- Image upload (drag + drop + browse) ----------------
+
+function initUploadZone(zone, { maxSizeMB = 5, onImage } = {}) {
+    const input = zone.querySelector('[data-upload-input]');
+    const preview = zone.querySelector('[data-upload-preview]');
+    const state = { file: null, dataUrl: null };
+
+    function validate(file) {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            showToast('Please choose a JPG, PNG or WebP image.', 'error');
+            return false;
+        }
+        if (file.size > maxSizeMB * 1024 * 1024) {
+            showToast(`Image must be ${maxSizeMB}MB or smaller.`, 'error');
+            return false;
+        }
+        return true;
+    }
+
+    function handleFile(file) {
+        if (!file) return;
+        if (!validate(file)) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            if (preview) {
+                preview.src = reader.result;
+                preview.classList.remove('hidden');
+            }
+            zone.classList.add('has-preview');
+            state.file = file;
+            state.dataUrl = reader.result;
+            if (onImage) onImage(state);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    if (input) {
+        input.addEventListener('change', () => handleFile(input.files[0]));
+    }
+    zone.addEventListener('click', event => {
+        if (event.target === preview) return;
+        if (input) input.click();
+    });
+    zone.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            if (input) input.click();
+        }
+    });
+    zone.addEventListener('dragover', event => {
+        event.preventDefault();
+        zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', event => {
+        event.preventDefault();
+        zone.classList.remove('dragover');
+        if (event.dataTransfer && event.dataTransfer.files) handleFile(event.dataTransfer.files[0]);
+    });
+
+    // Pre-fill an existing image preview.
+    return {
+        state,
+        setPreview(url) {
+            if (preview && url) {
+                preview.src = url;
+                preview.classList.remove('hidden');
+                zone.classList.add('has-preview');
+            }
+        }
+    };
+}
+
+// ---------------- Shared helpers ----------------
+
+// Matches a menu item to a category row. Checks the foreign key first,
+// then falls back to a case-insensitive name comparison so items created
+// with a plain category slug ("breakfast") still match "Breakfast".
+function categoryMatches(item, cat) {
+    if (!item || !cat) return false;
+    if (cat.id && String(item.category_id || '') === String(cat.id)) return true;
+    const itemName = String(item.category || '').trim().toLowerCase();
+    const catName = String(cat.name || '').trim().toLowerCase();
+    return itemName === catName;
+}
+
+// ---------------- Lucide icon refresh ----------------
+
+// Re-renders any <i data-lucide="..."> elements added to the DOM after the
+// initial page load (list rows, modal forms, etc.). Safe no-op when Lucide
+// is not loaded (e.g. offline).
+function refreshIcons() {
+    if (window.lucide) window.lucide.createIcons();
+}
+
+// ---------------- Demo-mode local storage helpers ----------------
+
+function readLocal(key, fallback) {
+    try {
+        const value = JSON.parse(localStorage.getItem(key) || 'null');
+        return value ?? fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function writeLocal(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+        // Storage unavailable — ignore.
+    }
+}
+
+async function getCurrencySymbol() {
+    try {
+        const currency = await getSetting('currency');
+        return currency || CONFIG.defaults.currency || '₦';
+    } catch {
+        return CONFIG.defaults.currency || '₦';
+    }
+}
+
+function formatMoney(value, symbol) {
+    const number = Number(value || 0);
+    return `${symbol}${number.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // ---------------- Menu items ----------------
 
 const itemsList = document.getElementById('items-list');
-const itemForm = document.getElementById('item-form');
 let editingItemId = null;
 
+async function getAdminItems() {
+    console.groupCollapsed('[admin] getAdminItems');
+    console.log('Supabase configured:', isSupabaseConfigured());
+    try {
+        const rows = await fetchRows('menu_items', { order: 'name' });
+        console.log('menu_items fetch result:', rows);
+        if (rows && rows.length) {
+            console.groupEnd();
+            return rows;
+        }
+        console.warn('menu_items returned empty/zero rows; falling back to local data.');
+    } catch (error) {
+        console.error('[admin] Could not fetch menu_items:', error);
+        showToast(`Could not load menu items: ${error.message}`, 'error');
+    }
+    let local = readLocal('emeraldAdminMenuItems', []);
+    console.log('local emeraldAdminMenuItems:', local);
+    if (!local.length) {
+        try {
+            const response = await fetch('./data/menu.json');
+            local = response.ok ? await response.json() : [];
+            console.log('fetched data/menu.json:', local.length, 'items');
+        } catch {
+            console.warn('data/menu.json fetch failed (open via local server?)');
+            local = [];
+        }
+    }
+    console.groupEnd();
+    return local.map(row => ({ ...row, id: row.id || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` }));
+}
+
 async function renderItems() {
-    const items = await fetchRows('menu_items', { order: 'name' });
+    if (!itemsList) return;
+    const currency = await getCurrencySymbol();
+    let items;
+    try {
+        items = await getAdminItems();
+    } catch {
+        items = [];
+    }
+
     itemsList.innerHTML = items && items.length
-        ? items.map(row => `
-            <div class="admin-row">
-                <img src="${escapeHtml(row.image || '')}" alt="" class="admin-thumb">
-                <div class="admin-row-main">
-                    <strong>${escapeHtml(row.name)}</strong>
-                    <span>${escapeHtml(row.category)} &middot; ${formatPrice(Number(row.price))}</span>
+        ? items.map(row => {
+            const available = row.is_available !== false && row.available !== false;
+            const image = row.image_url || row.image || '';
+            return `
+                <div class="admin-row">
+                    <img src="${escapeHtml(image)}" alt="${escapeHtml(row.name)}" class="admin-thumb" loading="lazy">
+                    <div class="admin-row-main">
+                        <strong>${escapeHtml(row.name)}</strong>
+                        <span>${escapeHtml(row.category || '')} &middot; ${formatMoney(row.price, currency)}</span>
+                    </div>
+                    <span class="admin-badge ${available ? 'ok' : ''}">${available ? 'In stock' : 'Hidden'}</span>
+                    <div class="admin-row-actions">
+                        <button type="button" class="admin-btn" data-edit-item="${escapeHtml(row.id)}"><i data-lucide="pen" aria-hidden="true"></i> Edit</button>
+                        <button type="button" class="admin-btn danger" data-delete-item="${escapeHtml(row.id)}" aria-label="Delete ${escapeHtml(row.name)}"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+                    </div>
                 </div>
-                <span class="admin-badge ${row.available === false ? '' : 'ok'}">${row.available === false ? 'Hidden' : 'Available'}</span>
-                <div class="admin-row-actions">
-                    <button type="button" class="admin-btn" data-edit-item="${row.id}"><i class="fa-solid fa-pen"></i> Edit</button>
-                    <button type="button" class="admin-btn danger" data-delete-item="${row.id}" aria-label="Delete item"><i class="fa-solid fa-trash"></i></button>
-                </div>
-            </div>
-        `).join('')
-        : '<p class="menu-empty">No menu items yet. Click "Add item" to create your first dish.</p>';
+            `;
+        }).join('')
+        : '<p class="admin-empty">No menu items yet. Click "Add item" to create your first dish.</p>';
+
+    refreshIcons();
 
     itemsList.querySelectorAll('[data-edit-item]').forEach(btn => {
         btn.addEventListener('click', async () => {
-            const items = await fetchRows('menu_items', { eq: { column: 'id', value: btn.dataset.editItem } });
-            if (items && items[0]) buildItemForm(items[0]);
+            const items = await getAdminItems();
+            const row = items.find(item => String(item.id) === btn.dataset.editItem);
+            if (row) buildItemForm(row);
         });
     });
     itemsList.querySelectorAll('[data-delete-item]').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (!confirm('Delete this menu item?')) return;
-            await deleteRow('menu_items', btn.dataset.deleteItem);
-            renderItems();
+            const id = btn.dataset.deleteItem;
+            if (!confirm('Delete this menu item? This cannot be undone.')) return;
+            try {
+                await deleteRow('menu_items', id);
+                const local = readLocal('emeraldAdminMenuItems', []);
+                writeLocal('emeraldAdminMenuItems', local.filter(item => String(item.id) !== id));
+                showToast('Menu item deleted.');
+                renderItems();
+            } catch (error) {
+                showToast(`Could not delete item: ${error.message}`, 'error');
+            }
         });
     });
 }
 
 async function buildItemForm(row = {}) {
     editingItemId = row.id || null;
-    itemForm.innerHTML = `
-        <h3>${row.id ? 'Edit' : 'Add'} menu item</h3>
-        <div class="admin-form-grid">
-            <label>Name
-                <input name="name" value="${escapeHtml(row.name || '')}" required>
-            </label>
-            <label>Category
-                <input name="category" value="${escapeHtml(row.category || '')}" list="category-options" required>
-                <datalist id="category-options">
-                    ${CATEGORY_SLUGS.map(slug => `<option value="${escapeHtml(slug)}">`).join('')}
-                </datalist>
-            </label>
-            <label>Price (&#8358;)
-                <input type="number" name="price" min="0" step="50" value="${row.price ?? ''}" required>
-            </label>
-            <label>Rating
-                <input type="number" name="rating" min="1" max="5" step="0.1" value="${row.rating ?? '4.5'}">
-            </label>
-            <label class="full-width">Image path or URL
-                <input name="image" value="${escapeHtml(row.image || '')}" placeholder="images/categories/dish.jpg">
-            </label>
-            <label class="full-width">Description
-                <textarea name="description" rows="2">${escapeHtml(row.description || '')}</textarea>
-            </label>
-        </div>
-        <label class="admin-check">
-            <input type="checkbox" name="available" ${row.available === false ? '' : 'checked'}> Available on the order page
-        </label>
-        <div class="admin-form-actions">
-            <button type="submit" class="btn btn-primary btn-sm">Save item</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="cancel-item-form">Cancel</button>
-        </div>
-    `;
-    itemForm.classList.remove('hidden');
-    document.getElementById('cancel-item-form').addEventListener('click', () => {
-        itemForm.classList.add('hidden');
-        editingItemId = null;
+    const currency = await getCurrencySymbol();
+    let categories = [];
+    try {
+        const rows = await fetchRows('categories', { order: 'display_order' });
+        categories = (rows && rows.length) ? rows : [];
+    } catch {
+        categories = [];
+    }
+    if (!categories.length) {
+        categories = CATEGORY_SLUGS.map(slug => ({ name: slug.charAt(0).toUpperCase() + slug.slice(1) }));
+    }
+
+    const options = categories.map(cat => {
+        const value = cat.id || cat.name;
+        const selected = String(row.category_id || row.category || '') === String(value) || String(row.category || '') === String(cat.name) ? 'selected' : '';
+        return `<option value="${escapeHtml(value)}" ${selected}>${escapeHtml(cat.name)}</option>`;
+    }).join('');
+
+    const available = row.is_available !== false && row.available !== false;
+    const currentImage = row.image_url || row.image || '';
+
+    openModal(`${row.id ? 'Edit' : 'Add'} menu item`, `
+        <form id="item-form" novalidate>
+            <div class="admin-form-grid">
+                <label>Product name
+                    <input name="name" value="${escapeHtml(row.name || '')}" maxlength="120" required>
+                </label>
+                <label>Price (${escapeHtml(currency)})
+                    <input type="number" name="price" min="0" step="0.01" value="${row.price ?? ''}" required>
+                </label>
+                <label>Category
+                    <select name="category" required>
+                        <option value="">Select a category&hellip;</option>
+                        ${options}
+                    </select>
+                </label>
+                <label>Availability
+                    <select name="available">
+                        <option value="1" ${available ? 'selected' : ''}>In stock</option>
+                        <option value="0" ${available ? '' : 'selected'}>Sold out</option>
+                    </select>
+                </label>
+                <label class="full-width">Description
+                    <textarea name="description" rows="3" placeholder="Describe this dish&hellip;" required>${escapeHtml(row.description || '')}</textarea>
+                </label>
+            </div>
+            <div class="full-width admin-logo-field">
+                <span class="admin-field-label">Image (JPG, PNG or WebP &mdash; max 5MB)</span>
+                <div class="admin-upload-zone" data-upload-zone tabindex="0" role="button" aria-label="Upload item image">
+                    <input type="file" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" data-upload-input aria-hidden="true" tabindex="-1">
+                    <i data-lucide="cloud-upload" aria-hidden="true"></i>
+                    <span>Drag &amp; drop an image here, or <strong>browse</strong></span>
+                    <img class="admin-upload-preview hidden" data-upload-preview alt="Item image preview">
+                </div>
+            </div>
+            <div class="admin-form-actions">
+                <button type="submit" class="btn btn-primary btn-sm" data-save>${row.id ? 'Save changes' : 'Add item'}</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-close-modal>Cancel</button>
+            </div>
+            <p class="form-message" data-form-message aria-live="polite"></p>
+        </form>
+    `);
+
+    const form = document.getElementById('item-form');
+    const zone = form.querySelector('[data-upload-zone]');
+    const upload = initUploadZone(zone);
+    if (currentImage) upload.setPreview(currentImage);
+
+    let dirty = false;
+    form.addEventListener('input', () => { dirty = true; });
+    form.addEventListener('change', () => { dirty = true; });
+    modalCloseGuard = () => {
+        if (!dirty) return true;
+        return confirm('You have unsaved changes. Discard them?');
+    };
+
+    const saveButton = form.querySelector('[data-save]');
+    const requiredFields = ['name', 'price', 'category', 'description'];
+
+    function validateForm() {
+        clearFieldErrors(form);
+        let valid = true;
+        if (!form.querySelector('[name="name"]').value.trim()) {
+            setFieldError(form, 'name', 'Please enter a product name.'); valid = false;
+        }
+        const price = Number(form.querySelector('[name="price"]').value);
+        if (!form.querySelector('[name="price"]').value || Number.isNaN(price) || price < 0) {
+            setFieldError(form, 'price', 'Please enter a valid price (0 or more).'); valid = false;
+        }
+        if (!form.querySelector('[name="category"]').value) {
+            setFieldError(form, 'category', 'Please choose a category.'); valid = false;
+        }
+        if (!form.querySelector('[name="description"]').value.trim()) {
+            setFieldError(form, 'description', 'Please enter a description.'); valid = false;
+        }
+        saveButton.disabled = !valid;
+        return valid;
+    }
+
+    requiredFields.forEach(name => {
+        form.querySelector(`[name="${name}"]`).addEventListener('input', validateForm);
+    });
+    saveButton.disabled = true;
+    validateForm();
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (!validateForm()) return;
+
+        const message = form.querySelector('[data-form-message]');
+        message.textContent = '';
+        message.classList.remove('error');
+
+        const name = form.querySelector('[name="name"]').value.trim();
+        const description = form.querySelector('[name="description"]').value.trim();
+        const price = Number(form.querySelector('[name="price"]').value);
+        const categoryOption = form.querySelector('[name="category"]').selectedOptions[0];
+        const category = categoryOption ? categoryOption.text : '';
+        const categoryValue = form.querySelector('[name="category"]').value;
+        const available = form.querySelector('[name="available"]').value === '1';
+
+        try {
+            let imageUrl = currentImage;
+            let image = currentImage;
+
+            if (upload.state.file) {
+                if (isSupabaseConfigured()) {
+                    imageUrl = await uploadImage(upload.state.file, 'menu');
+                    image = imageUrl || image;
+                    if (!imageUrl) {
+                        // Storage unavailable — fall back to data URL so the edit is never lost.
+                        image = upload.state.dataUrl || image;
+                        imageUrl = image;
+                    }
+                } else {
+                    image = upload.state.dataUrl || image;
+                    imageUrl = image;
+                }
+            }
+
+            const payload = {
+                name,
+                description,
+                price,
+                category,
+                category_id: /^[0-9a-f-]{36}$/i.test(categoryValue) ? categoryValue : null,
+                image,
+                image_url: imageUrl,
+                available,
+                is_available: available,
+                updated_at: new Date().toISOString()
+            };
+
+            if (editingItemId) {
+                if (isSupabaseConfigured()) {
+                    await updateRow('menu_items', editingItemId, payload);
+                } else {
+                    const local = readLocal('emeraldAdminMenuItems', []);
+                    const index = local.findIndex(item => String(item.id) === String(editingItemId));
+                    if (index > -1) local[index] = { ...local[index], ...payload, id: local[index].id };
+                    writeLocal('emeraldAdminMenuItems', local);
+                }
+                showToast('Menu item updated.');
+            } else {
+                if (isSupabaseConfigured()) {
+                    await insertRow('menu_items', payload);
+                } else {
+                    const local = readLocal('emeraldAdminMenuItems', []);
+                    local.unshift({ ...payload, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` });
+                    writeLocal('emeraldAdminMenuItems', local);
+                }
+                showToast('Menu item added.');
+            }
+
+            modalCloseGuard = null;
+            closeModal();
+            renderItems();
+        } catch (error) {
+            message.textContent = `Could not save the item: ${error.message}`;
+            message.classList.add('error');
+            showToast(`Could not save the item: ${error.message}`, 'error');
+        }
     });
 }
 
-document.getElementById('add-item').addEventListener('click', () => buildItemForm());
-
-itemForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const formData = new FormData(itemForm);
-    const payload = {
-        name: formData.get('name').trim(),
-        category: formData.get('category').trim(),
-        price: Number(formData.get('price')),
-        rating: Number(formData.get('rating')) || 4.5,
-        image: formData.get('image').trim(),
-        description: formData.get('description').trim(),
-        available: formData.get('available') === 'on'
-    };
-    if (editingItemId) {
-        await updateRow('menu_items', editingItemId, payload);
-    } else {
-        await insertRow('menu_items', payload);
-    }
-    itemForm.classList.add('hidden');
-    editingItemId = null;
-    renderItems();
-});
+document.getElementById('add-item')?.addEventListener('click', () => buildItemForm());
 
 // ---------------- Categories ----------------
 
 const categoriesList = document.getElementById('categories-list');
-const categoryForm = document.getElementById('category-form');
 let editingCategoryId = null;
 
+async function getAdminCategories() {
+    try {
+        const rows = await fetchRows('categories', { order: 'display_order' });
+        if (rows && rows.length) return rows;
+    } catch (error) {
+        showToast(`Could not load categories: ${error.message}`, 'error');
+    }
+    let local = readLocal('emeraldAdminCategories', []);
+    if (!local.length) {
+        local = CATEGORY_SLUGS.map((slug, index) => ({
+            id: null,
+            name: slug.charAt(0).toUpperCase() + slug.slice(1),
+            display_order: index
+        }));
+    }
+    return local;
+}
+
 async function renderCategories() {
-    const rows = await fetchRows('categories', { order: 'sort_order' });
-    categoriesList.innerHTML = rows && rows.length
-        ? rows.map(row => `
-            <div class="admin-row">
-                <img src="${escapeHtml(row.image || '')}" alt="" class="admin-thumb">
-                <div class="admin-row-main">
-                    <strong>${escapeHtml(row.name)}</strong>
-                    <span>${escapeHtml(row.description || '')}</span>
+    if (!categoriesList) return;
+    let categories;
+    let items;
+    try {
+        [categories, items] = await Promise.all([getAdminCategories(), getAdminItems()]);
+    } catch {
+        categories = [];
+        items = [];
+    }
+
+    categoriesList.innerHTML = categories && categories.length
+        ? categories.map(cat => {
+            const count = items.filter(item => categoryMatches(item, cat)).length;
+            return `
+                <div class="admin-row">
+                    <div class="admin-row-main">
+                        <strong>${escapeHtml(cat.name)}</strong>
+                        <span>${count} item${count === 1 ? '' : 's'}</span>
+                    </div>
+                    <div class="admin-row-actions">
+                        <button type="button" class="admin-btn" data-edit-category="${escapeHtml(cat.id || cat.name)}"><i data-lucide="pen" aria-hidden="true"></i> Edit</button>
+                        <button type="button" class="admin-btn danger" data-delete-category="${escapeHtml(cat.id || cat.name)}" aria-label="Delete ${escapeHtml(cat.name)}"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+                    </div>
                 </div>
-                <div class="admin-row-actions">
-                    <button type="button" class="admin-btn" data-edit-category="${row.id}"><i class="fa-solid fa-pen"></i> Edit</button>
-                    <button type="button" class="admin-btn danger" data-delete-category="${row.id}" aria-label="Delete category"><i class="fa-solid fa-trash"></i></button>
-                </div>
-            </div>
-        `).join('')
-        : '<p class="menu-empty">No categories yet.</p>';
+            `;
+        }).join('')
+        : '<p class="admin-empty">No categories yet.</p>';
+
+    refreshIcons();
 
     categoriesList.querySelectorAll('[data-edit-category]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const rows = await fetchRows('categories', { eq: { column: 'id', value: btn.dataset.editCategory } });
-            if (rows && rows[0]) buildCategoryForm(rows[0]);
+        btn.addEventListener('click', () => {
+            const found = categories.find(cat => String(cat.id || cat.name) === btn.dataset.editCategory);
+            if (found) buildCategoryForm(found);
         });
     });
     categoriesList.querySelectorAll('[data-delete-category]').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (!confirm('Delete this category?')) return;
-            await deleteRow('categories', btn.dataset.deleteCategory);
-            renderCategories();
+            const key = btn.dataset.deleteCategory;
+            const cat = categories.find(c => String(c.id || c.name) === key);
+            if (!cat) return;
+            const count = items.filter(item => categoryMatches(item, cat)).length;
+            if (count > 0) {
+                alert(`Cannot delete "${cat.name}" because ${count} menu item(s) are assigned to it. Reassign or remove those items first.`);
+                return;
+            }
+            if (!confirm(`Delete category "${cat.name}"?`)) return;
+            try {
+                if (cat.id) {
+                    await deleteRow('categories', cat.id);
+                }
+                const local = readLocal('emeraldAdminCategories', []);
+                writeLocal('emeraldAdminCategories', local.filter(c => String(c.id || c.name) !== key));
+                showToast('Category deleted.');
+                renderCategories();
+            } catch (error) {
+                showToast(`Could not delete category: ${error.message}`, 'error');
+            }
         });
     });
 }
 
 function buildCategoryForm(row = {}) {
     editingCategoryId = row.id || null;
-    categoryForm.innerHTML = `
-        <h3>${row.id ? 'Edit' : 'Add'} category</h3>
-        <div class="admin-form-grid">
-            <label>Name
-                <input name="name" value="${escapeHtml(row.name || '')}" required>
-            </label>
-            <label>Image path or URL
-                <input name="image" value="${escapeHtml(row.image || '')}" placeholder="images/categories/soups.jpg">
-            </label>
-            <label class="full-width">Description
-                <textarea name="description" rows="2">${escapeHtml(row.description || '')}</textarea>
-            </label>
-        </div>
-        <div class="admin-form-actions">
-            <button type="submit" class="btn btn-primary btn-sm">Save category</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="cancel-category-form">Cancel</button>
-        </div>
-    `;
-    categoryForm.classList.remove('hidden');
-    document.getElementById('cancel-category-form').addEventListener('click', () => {
-        categoryForm.classList.add('hidden');
-        editingCategoryId = null;
+    openModal(`${row.id ? 'Edit' : 'Add'} category`, `
+        <form id="category-form" novalidate>
+            <div class="admin-form-grid">
+                <label>Name
+                    <input name="name" value="${escapeHtml(row.name || '')}" maxlength="80" required>
+                </label>
+                <label>Display order (lower = first)
+                    <input type="number" name="display_order" min="0" step="1" value="${row.display_order ?? row.sort_order ?? 0}">
+                </label>
+            </div>
+            <div class="admin-form-actions">
+                <button type="submit" class="btn btn-primary btn-sm">${row.id ? 'Save changes' : 'Add category'}</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-close-modal>Cancel</button>
+            </div>
+            <p class="form-message" data-form-message aria-live="polite"></p>
+        </form>
+    `);
+
+    const form = document.getElementById('category-form');
+    let dirty = false;
+    form.addEventListener('input', () => { dirty = true; });
+    modalCloseGuard = () => (!dirty || confirm('You have unsaved changes. Discard them?'));
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const message = form.querySelector('[data-form-message]');
+        message.textContent = '';
+        message.classList.remove('error');
+        clearFieldErrors(form);
+
+        const name = form.querySelector('[name="name"]').value.trim();
+        if (!name) {
+            setFieldError(form, 'name', 'Please enter a category name.');
+            return;
+        }
+        const displayOrder = Number(form.querySelector('[name="display_order"]').value) || 0;
+
+        try {
+            if (editingCategoryId) {
+                if (isSupabaseConfigured()) {
+                    await updateRow('categories', editingCategoryId, { name, display_order, sort_order: displayOrder });
+                } else {
+                    const local = readLocal('emeraldAdminCategories', []);
+                    const index = local.findIndex(c => String(c.id || c.name) === String(editingCategoryId));
+                    if (index > -1) local[index] = { ...local[index], name, display_order: displayOrder };
+                    writeLocal('emeraldAdminCategories', local);
+                }
+                showToast('Category updated.');
+            } else {
+                if (isSupabaseConfigured()) {
+                    await insertRow('categories', { name, display_order, sort_order: displayOrder });
+                } else {
+                    const local = readLocal('emeraldAdminCategories', []);
+                    local.push({ id: null, name, display_order: displayOrder });
+                    writeLocal('emeraldAdminCategories', local);
+                }
+                showToast('Category added.');
+            }
+            modalCloseGuard = null;
+            closeModal();
+            renderCategories();
+        } catch (error) {
+            message.textContent = `Could not save the category: ${error.message}`;
+            message.classList.add('error');
+            showToast(`Could not save the category: ${error.message}`, 'error');
+        }
     });
 }
 
-document.getElementById('add-category').addEventListener('click', () => buildCategoryForm());
-
-categoryForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const formData = new FormData(categoryForm);
-    const payload = {
-        name: formData.get('name').trim(),
-        image: formData.get('image').trim(),
-        description: formData.get('description').trim()
-    };
-    if (editingCategoryId) {
-        await updateRow('categories', editingCategoryId, payload);
-    } else {
-        await insertRow('categories', payload);
-    }
-    categoryForm.classList.add('hidden');
-    editingCategoryId = null;
-    renderCategories();
-});
+document.getElementById('add-category')?.addEventListener('click', () => buildCategoryForm());
 
 // ---------------- Promotions ----------------
 
 const promotionsList = document.getElementById('promotions-list');
-const promotionForm = document.getElementById('promotion-form');
 let editingPromotionId = null;
 
+async function getAdminPromotions() {
+    try {
+        const rows = await fetchRows('promotions', { order: 'created_at', ascending: false });
+        if (rows && rows.length) return rows;
+    } catch (error) {
+        showToast(`Could not load promotions: ${error.message}`, 'error');
+    }
+    return readLocal('emeraldAdminPromotions', []);
+}
+
+function formatPromoDates(row) {
+    const start = row.start_date ? new Date(`${row.start_date}T00:00:00`) : null;
+    const end = row.end_date ? new Date(`${row.end_date}T00:00:00`) : null;
+    const format = date => date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    if (start && end) return `${format(start)} &rarr; ${format(end)}`;
+    if (start) return `From ${format(start)}`;
+    if (end) return `Until ${format(end)}`;
+    return '';
+}
+
+function formatDiscount(row) {
+    if (row.discount_value === null || row.discount_value === undefined) return '';
+    const value = Number(row.discount_value);
+    return row.discount_type === 'fixed' ? formatMoney(value, '₦') : `${value}%`;
+}
+
+function lastSentNote(row) {
+    if (!row.last_sent_at) return '';
+    const date = new Date(row.last_sent_at).toLocaleString();
+    const sent = row.last_sent_count ?? '';
+    const failed = row.last_failed_count ?? '';
+    let text = `Last sent: ${date}`;
+    if (sent !== '') text += ` &middot; ${sent} sent`;
+    if (failed !== '' && Number(failed) > 0) text += ` &middot; ${failed} failed`;
+    return `<p class="admin-live-note">${text}</p>`;
+}
+
 async function renderPromotions() {
-    const rows = await fetchRows('promotions', { order: 'created_at', ascending: false });
+    if (!promotionsList) return;
+    let rows;
+    try {
+        rows = await getAdminPromotions();
+    } catch {
+        rows = [];
+    }
+
     promotionsList.innerHTML = rows && rows.length
         ? rows.map(row => `
             <div class="admin-row">
                 <div class="admin-row-main">
                     <strong>${escapeHtml(row.title)}</strong>
-                    <span>${escapeHtml(row.message || '')}${row.discount ? ` &middot; <em>${escapeHtml(row.discount)}</em>` : ''}</span>
+                    <span>${escapeHtml(row.description || row.message || '')}${row.discount_value !== null && row.discount_value !== undefined ? ` &middot; <em>${escapeHtml(formatDiscount(row))}</em>` : ''}</span>
+                    ${formatPromoDates(row) ? `<span>${formatPromoDates(row)}</span>` : ''}
+                    ${lastSentNote(row)}
                 </div>
-                <span class="admin-badge ${row.active ? 'ok' : ''}">${row.active ? 'Active' : 'Draft'}</span>
+                <span class="admin-badge ${row.is_live || row.active ? 'ok' : ''}">${row.is_live || row.active ? 'Live' : 'Draft'}</span>
                 <div class="admin-row-actions">
-                    <button type="button" class="admin-btn" data-email-promo="${row.id}" title="Email subscribers"><i class="fa-solid fa-paper-plane"></i> Email</button>
-                    <button type="button" class="admin-btn" data-edit-promotion="${row.id}"><i class="fa-solid fa-pen"></i> Edit</button>
-                    <button type="button" class="admin-btn danger" data-delete-promotion="${row.id}" aria-label="Delete promotion"><i class="fa-solid fa-trash"></i></button>
+                    ${row.is_live ? '' : `<button type="button" class="admin-btn" data-golive="${escapeHtml(row.id)}" title="Set live and email subscribers"><i data-lucide="send" aria-hidden="true"></i> Go live</button>`}
+                    <button type="button" class="admin-btn" data-edit-promotion="${escapeHtml(row.id)}"><i data-lucide="pen" aria-hidden="true"></i> Edit</button>
+                    <button type="button" class="admin-btn danger" data-delete-promotion="${escapeHtml(row.id)}" aria-label="Delete promotion"><i data-lucide="trash-2" aria-hidden="true"></i></button>
                 </div>
             </div>
         `).join('')
-        : '<p class="menu-empty">No promotions yet.</p>';
+        : '<p class="admin-empty">No promotions yet. Click "Add promotion" to create one.</p>';
+
+    refreshIcons();
 
     promotionsList.querySelectorAll('[data-edit-promotion]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const rows = await fetchRows('promotions', { eq: { column: 'id', value: btn.dataset.editPromotion } });
-            if (rows && rows[0]) buildPromotionForm(rows[0]);
+        btn.addEventListener('click', () => {
+            const found = rows.find(p => String(p.id) === btn.dataset.editPromotion);
+            if (found) buildPromotionForm(found);
         });
     });
     promotionsList.querySelectorAll('[data-delete-promotion]').forEach(btn => {
         btn.addEventListener('click', async () => {
             if (!confirm('Delete this promotion?')) return;
-            await deleteRow('promotions', btn.dataset.deletePromotion);
-            renderPromotions();
+            try {
+                await deleteRow('promotions', btn.dataset.deletePromotion);
+                const local = readLocal('emeraldAdminPromotions', []);
+                writeLocal('emeraldAdminPromotions', local.filter(p => String(p.id) !== btn.dataset.deletePromotion));
+                showToast('Promotion deleted.');
+                renderPromotions();
+            } catch (error) {
+                showToast(`Could not delete promotion: ${error.message}`, 'error');
+            }
         });
     });
-    promotionsList.querySelectorAll('[data-email-promo]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const rows = await fetchRows('promotions', { eq: { column: 'id', value: btn.dataset.emailPromo } });
-            const promotion = rows && rows[0];
-            if (!promotion) return;
-            const subscribers = await getSubscribers();
-            const sent = await sendPromoEmails(subscribers, promotion);
-            alert(sent
-                ? `Promotion emailed to ${sent} subscriber(s).`
-                : 'EmailJS is not configured. Add your keys in js/config.js to send emails.');
-        });
+    promotionsList.querySelectorAll('[data-golive]').forEach(btn => {
+        btn.addEventListener('click', () => goLive(btn.dataset.golive));
     });
+}
+
+async function goLive(promotionId) {
+    let row;
+    try {
+        const rows = await fetchRows('promotions', { eq: { column: 'id', value: promotionId } });
+        row = rows && rows[0];
+        if (!row) {
+            const local = readLocal('emeraldAdminPromotions', []);
+            row = local.find(p => String(p.id) === String(promotionId));
+        }
+    } catch {
+        const local = readLocal('emeraldAdminPromotions', []);
+        row = local.find(p => String(p.id) === String(promotionId));
+    }
+    if (!row) return;
+
+    // Duplicate-send guard: if this promotion was already emailed and its
+    // content has not changed since (updated_at <= last_sent_at), block the
+    // send. The admin must edit the content (bumping updated_at) first.
+    if (row.is_live && row.last_sent_at) {
+        const lastSent = new Date(row.last_sent_at);
+        const updated = row.updated_at ? new Date(row.updated_at) : null;
+        if (!updated || updated <= lastSent) {
+            showToast(`"${row.title}" was already emailed on ${lastSent.toLocaleString()}. Edit its content to email again.`, 'info');
+            return;
+        }
+    }
+
+    const explicit = confirm(`This will email ALL active subscribers and opted-in customers about "${row.title}". Emails cannot be undone. Continue?`);
+    if (!explicit) return;
+
+    const button = document.querySelector(`[data-golive="${promotionId}"]`);
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Sending…';
+    }
+
+    try {
+        let result;
+        if (isSupabaseConfigured()) {
+            result = await invokeEdgeFunction('send-promotion-email', { promotion_id: promotionId });
+            if (!result) throw new Error('The email function returned no result. Is it deployed?');
+        } else {
+            // Demo mode fallback: EmailJS (only when configured).
+            const subscribers = (await getSubscribers()) || readLocal('emeraldSubscribers', []);
+            const sent = await sendPromoEmails(subscribers, row);
+            result = { sent: sent || 0, failed: 0, message: 'Demo send via EmailJS' };
+        }
+
+        const sent = Number(result.sent ?? 0);
+        const failed = Number(result.failed ?? 0);
+
+        if (isSupabaseConfigured()) {
+            const payload = {
+                is_live: true,
+                last_sent_at: new Date().toISOString(),
+                last_sent_count: sent,
+                last_failed_count: failed
+            };
+            try {
+                await updateRow('promotions', promotionId, payload);
+            } catch {
+                // Legacy table without count columns — keep just the timestamp.
+                await updateRow('promotions', promotionId, { is_live: true, last_sent_at: new Date().toISOString() });
+            }
+        } else {
+            const local = readLocal('emeraldAdminPromotions', []);
+            const index = local.findIndex(p => String(p.id) === String(promotionId));
+            if (index > -1) {
+                local[index] = { ...local[index], is_live: true, last_sent_at: new Date().toISOString(), last_sent_count: sent, last_failed_count: failed };
+                writeLocal('emeraldAdminPromotions', local);
+            }
+        }
+
+        showToast(`${sent} email(s) sent, ${failed} failed.`);
+        renderPromotions();
+    } catch (error) {
+        if (button) {
+            button.disabled = false;
+            button.textContent = 'Go live';
+        }
+        showToast(`Could not send emails: ${error.message}`, 'error');
+    }
 }
 
 function buildPromotionForm(row = {}) {
     editingPromotionId = row.id || null;
-    promotionForm.innerHTML = `
-        <h3>${row.id ? 'Edit' : 'Add'} promotion</h3>
-        <div class="admin-form-grid">
-            <label>Title
-                <input name="title" value="${escapeHtml(row.title || '')}" required>
-            </label>
-            <label>Discount / code
-                <input name="discount" value="${escapeHtml(row.discount || '')}" placeholder="e.g. 10% off with code EMERALD10">
-            </label>
-            <label class="full-width">Message
-                <textarea name="message" rows="2">${escapeHtml(row.message || '')}</textarea>
-            </label>
-        </div>
-        <label class="admin-check">
-            <input type="checkbox" name="active" ${row.active === false ? '' : 'checked'}> Active
-        </label>
-        <div class="admin-form-actions">
-            <button type="submit" class="btn btn-primary btn-sm">Save promotion</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="cancel-promotion-form">Cancel</button>
-        </div>
-    `;
-    promotionForm.classList.remove('hidden');
-    document.getElementById('cancel-promotion-form').addEventListener('click', () => {
-        promotionForm.classList.add('hidden');
-        editingPromotionId = null;
+    openModal(`${row.id ? 'Edit' : 'Add'} promotion`, `
+        <form id="promotion-form" novalidate>
+            <div class="admin-form-grid">
+                <label>Title
+                    <input name="title" value="${escapeHtml(row.title || '')}" maxlength="120" required>
+                </label>
+                <label>Discount type
+                    <select name="discount_type">
+                        <option value="percentage" ${row.discount_type === 'fixed' ? '' : 'selected'}>Percentage (%)</option>
+                        <option value="fixed" ${row.discount_type === 'fixed' ? 'selected' : ''}>Fixed amount</option>
+                    </select>
+                </label>
+                <label>Discount value
+                    <input type="number" name="discount_value" min="0" step="0.01" value="${row.discount_value ?? ''}">
+                </label>
+                <label>Start date
+                    <input type="date" name="start_date" value="${escapeHtml(row.start_date || '')}">
+                </label>
+                <label>End date
+                    <input type="date" name="end_date" value="${escapeHtml(row.end_date || '')}">
+                </label>
+                <label class="full-width">Description
+                    <textarea name="description" rows="3" placeholder="Tell subscribers what this offer includes&hellip;" required>${escapeHtml(row.description || row.message || '')}</textarea>
+                </label>
+            </div>
+            <div class="admin-form-actions">
+                <button type="submit" class="btn btn-primary btn-sm">${row.id ? 'Save changes' : 'Add promotion'}</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-close-modal>Cancel</button>
+            </div>
+            <p class="form-message" data-form-message aria-live="polite"></p>
+        </form>
+    `);
+
+    const form = document.getElementById('promotion-form');
+    let dirty = false;
+    form.addEventListener('input', () => { dirty = true; });
+    form.addEventListener('change', () => { dirty = true; });
+    modalCloseGuard = () => (!dirty || confirm('You have unsaved changes. Discard them?'));
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const message = form.querySelector('[data-form-message]');
+        message.textContent = '';
+        message.classList.remove('error');
+        clearFieldErrors(form);
+
+        const title = form.querySelector('[name="title"]').value.trim();
+        const description = form.querySelector('[name="description"]').value.trim();
+        if (!title) {
+            setFieldError(form, 'title', 'Please enter a title.');
+            return;
+        }
+        if (!description) {
+            setFieldError(form, 'description', 'Please enter a description.');
+            return;
+        }
+
+        const startDate = form.querySelector('[name="start_date"]').value;
+        const endDate = form.querySelector('[name="end_date"]').value;
+        if (startDate && endDate && endDate < startDate) {
+            setFieldError(form, 'end_date', 'End date must be on or after the start date.');
+            return;
+        }
+
+        const payload = {
+            title,
+            description,
+            message: description,
+            discount_type: form.querySelector('[name="discount_type"]').value,
+            discount_value: form.querySelector('[name="discount_value"]').value === '' ? null : Number(form.querySelector('[name="discount_value"]').value),
+            start_date: startDate || null,
+            end_date: endDate || null,
+            updated_at: new Date().toISOString()
+        };
+        // Editing content resets the live flag so the admin can email again
+        // (the duplicate-send guard in goLive() re-checks on activation).
+        if (editingPromotionId) payload.is_live = false;
+
+        try {
+            if (editingPromotionId) {
+                if (isSupabaseConfigured()) {
+                    await updateRow('promotions', editingPromotionId, payload);
+                } else {
+                    const local = readLocal('emeraldAdminPromotions', []);
+                    const index = local.findIndex(p => String(p.id) === String(editingPromotionId));
+                    if (index > -1) local[index] = { ...local[index], ...payload };
+                    writeLocal('emeraldAdminPromotions', local);
+                }
+                showToast('Promotion updated.');
+            } else {
+                if (isSupabaseConfigured()) {
+                    await insertRow('promotions', { ...payload, active: true, is_live: false });
+                } else {
+                    const local = readLocal('emeraldAdminPromotions', []);
+                    local.unshift({ ...payload, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, is_live: false });
+                    writeLocal('emeraldAdminPromotions', local);
+                }
+                showToast('Promotion added.');
+            }
+            modalCloseGuard = null;
+            closeModal();
+            renderPromotions();
+        } catch (error) {
+            message.textContent = `Could not save the promotion: ${error.message}`;
+            message.classList.add('error');
+            showToast(`Could not save the promotion: ${error.message}`, 'error');
+        }
     });
 }
 
-document.getElementById('add-promotion').addEventListener('click', () => buildPromotionForm());
-
-promotionForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const formData = new FormData(promotionForm);
-    const payload = {
-        title: formData.get('title').trim(),
-        discount: formData.get('discount').trim(),
-        message: formData.get('message').trim(),
-        active: formData.get('active') === 'on'
-    };
-    if (editingPromotionId) {
-        await updateRow('promotions', editingPromotionId, payload);
-    } else {
-        await insertRow('promotions', payload);
-    }
-    promotionForm.classList.add('hidden');
-    editingPromotionId = null;
-    renderPromotions();
-});
+document.getElementById('add-promotion')?.addEventListener('click', () => buildPromotionForm());
 
 // ---------------- Subscribers ----------------
 
 const subscribersList = document.getElementById('subscribers-list');
+const subscriberSearch = document.getElementById('subscriber-search');
 
-async function renderSubscribers() {
-    const rows = await getSubscribers();
-    subscribersList.innerHTML = rows && rows.length
-        ? rows.map(row => `
-            <div class="admin-row">
-                <div class="admin-row-main">
-                    <strong>${escapeHtml(row.email)}</strong>
+async function renderSubscribers(filter = '') {
+    if (!subscribersList) return;
+    let rows;
+    try {
+        rows = await getSubscribers();
+    } catch (error) {
+        showToast(`Could not load subscribers: ${error.message}`, 'error');
+        rows = null;
+    }
+    if (!rows || !rows.length) rows = readLocal('emeraldSubscribers', []);
+
+    const query = (filter || '').toLowerCase();
+    const filtered = rows.filter(row => !query || String(row.email || '').toLowerCase().includes(query));
+
+    subscribersList.innerHTML = filtered && filtered.length
+        ? filtered.map(row => {
+            const status = row.status || 'active';
+            const date = row.subscribed_at || row.created_at;
+            return `
+                <div class="admin-row">
+                    <div class="admin-row-main">
+                        <strong>${escapeHtml(row.email)}</strong>
+                        ${date ? `<span>Subscribed ${escapeHtml(new Date(date).toLocaleDateString())}</span>` : ''}
+                    </div>
+                    <span class="admin-badge ${status === 'active' ? 'ok' : ''}">${status === 'active' ? 'Active' : 'Unsubscribed'}</span>
+                    <div class="admin-row-actions">
+                        <button type="button" class="admin-btn danger" data-delete-subscriber="${escapeHtml(row.id || row.email)}" aria-label="Remove subscriber ${escapeHtml(row.email)}"><i data-lucide="trash-2" aria-hidden="true"></i> Remove</button>
+                    </div>
                 </div>
-                <div class="admin-row-actions">
-                    <button type="button" class="admin-btn danger" data-delete-subscriber="${row.id}" aria-label="Remove subscriber"><i class="fa-solid fa-trash"></i></button>
-                </div>
-            </div>
-        `).join('')
-        : '<p class="menu-empty">No subscribers yet.</p>';
+            `;
+        }).join('')
+        : '<p class="admin-empty">No subscribers found.</p>';
+
+    refreshIcons();
 
     subscribersList.querySelectorAll('[data-delete-subscriber]').forEach(btn => {
         btn.addEventListener('click', async () => {
-            await removeSubscriber(btn.dataset.deleteSubscriber);
-            renderSubscribers();
+            if (!confirm('Remove this subscriber? They will no longer receive promo emails.')) return;
+            try {
+                await removeSubscriber(btn.dataset.deleteSubscriber);
+                const local = readLocal('emeraldSubscribers', []);
+                writeLocal('emeraldSubscribers', local.filter(s => String(s.id || s.email) !== btn.dataset.deleteSubscriber));
+                showToast('Subscriber removed.');
+                renderSubscribers(subscriberSearch?.value || '');
+            } catch (error) {
+                showToast(`Could not remove subscriber: ${error.message}`, 'error');
+            }
         });
     });
 }
+
+if (subscriberSearch) {
+    subscriberSearch.addEventListener('input', () => renderSubscribers(subscriberSearch.value));
+}
+
+document.getElementById('export-subscribers')?.addEventListener('click', () => {
+    const rows = readLocal('emeraldSubscribers', []);
+    Promise.resolve(getSubscribers()).then(supabaseRows => {
+        const all = (supabaseRows && supabaseRows.length) ? supabaseRows : rows;
+        const csvRows = all.map(row => ({
+            email: row.email,
+            status: row.status || 'active',
+            subscribed_at: row.subscribed_at || row.created_at || ''
+        }));
+        downloadBlob('emerald-cuisine-subscribers.csv', toCSV(csvRows), 'text/csv');
+        showToast(`Exported ${csvRows.length} subscriber(s).`);
+    }).catch(() => {
+        const csvRows = rows.map(row => ({ email: row.email, status: row.status || 'active', subscribed_at: row.subscribed_at || row.created_at || '' }));
+        downloadBlob('emerald-cuisine-subscribers.csv', toCSV(csvRows), 'text/csv');
+        showToast(`Exported ${csvRows.length} subscriber(s).`);
+    });
+});
 
 // ---------------- Customers ----------------
 
 const customersList = document.getElementById('customers-list');
+const customerSearch = document.getElementById('customer-search');
 
-async function renderCustomers() {
-    let rows = null;
+async function getAdminCustomers() {
     try {
-        rows = await fetchRows('customers', { order: 'created_at', ascending: false });
+        const rows = await fetchRows('customers', { order: 'created_at', ascending: false });
+        if (rows && rows.length) return rows;
+    } catch (error) {
+        showToast(`Could not load customers: ${error.message}`, 'error');
+    }
+    return readLocal('emeraldUsers', []);
+}
+
+async function getOrdersByEmail(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (isSupabaseConfigured()) {
+        try {
+            const rows = await fetchRowsIn('orders', 'customer_email', [normalized, String(email || '')]);
+            if (rows && rows.length) return rows;
+        } catch {
+            // fall through to local orders
+        }
+    }
+    const local = readLocal('emeraldOrders', {});
+    return Object.values(local).filter(order =>
+        String(order.email || '').trim().toLowerCase() === normalized ||
+        String(order.customer_email || '').trim().toLowerCase() === normalized
+    );
+}
+
+async function renderCustomers(filter = '') {
+    if (!customersList) return;
+    let customers;
+    try {
+        customers = await getAdminCustomers();
     } catch {
-        rows = null;
+        customers = [];
     }
 
-    // Demo/fallback: show local users in case Supabase is not configured.
-    if (!rows || !rows.length) {
-        let localUsers = [];
-        try {
-            localUsers = JSON.parse(localStorage.getItem('emeraldUsers') || '[]');
-        } catch {
-            localUsers = [];
-        }
-        customersList.innerHTML = localUsers.length
-            ? localUsers.map(user => `
+    let ordersByEmail = {};
+    try {
+        const orderRows = isSupabaseConfigured()
+            ? await fetchRows('orders', { order: 'created_at', ascending: false, limit: 2000 })
+            : Object.values(readLocal('emeraldOrders', {}));
+        (orderRows || []).forEach(order => {
+            const email = String(order.customer_email || order.email || '').trim().toLowerCase();
+            if (!email) return;
+            if (!ordersByEmail[email]) ordersByEmail[email] = [];
+            ordersByEmail[email].push(order);
+        });
+    } catch {
+        ordersByEmail = {};
+    }
+
+    const query = (filter || '').toLowerCase();
+    const filtered = customers.filter(c =>
+        !query ||
+        String(c.name || '').toLowerCase().includes(query) ||
+        String(c.email || '').toLowerCase().includes(query)
+    );
+
+    customersList.innerHTML = filtered && filtered.length
+        ? filtered.map(customer => {
+            const email = String(customer.email || '').toLowerCase();
+            const orders = ordersByEmail[email] || [];
+            const totalSpent = orders.reduce((sum, order) => sum + Number(order.total || 0), 0);
+            const lastOrder = orders.length ? orders[orders.length - 1] : null;
+            const lastOrderDate = lastOrder ? new Date(lastOrder.created_at || lastOrder.createdAt || Date.now()).toLocaleDateString() : '—';
+            return `
                 <div class="admin-row">
                     <div class="admin-row-main">
-                        <strong>${escapeHtml(user.name || '')}</strong>
-                        <span>${escapeHtml(user.email || '')}</span>
+                        <strong>${escapeHtml(customer.name || 'New user')}</strong>
+                        <span>${escapeHtml(customer.email || '')}${customer.phone ? ` &middot; ${escapeHtml(customer.phone)}` : ''}</span>
+                        <span>${orders.length} order(s) &middot; ${formatMoney(totalSpent, '₦')} &middot; Last order: ${escapeHtml(lastOrderDate)}</span>
                     </div>
-                    <span class="admin-badge ok">Local</span>
+                    <span class="admin-badge ${customer.marketing_opt_in ? 'ok' : ''}">${customer.marketing_opt_in ? 'Opted in' : 'No consent'}</span>
+                    <div class="admin-row-actions">
+                        <button type="button" class="admin-btn" data-view-customer="${escapeHtml(customer.id || customer.email)}"><i data-lucide="receipt" aria-hidden="true"></i> History</button>
+                        <button type="button" class="admin-btn danger" data-delete-customer="${escapeHtml(customer.id || customer.email)}" aria-label="Delete customer"><i data-lucide="trash-2" aria-hidden="true"></i></button>
+                    </div>
                 </div>
-            `).join('')
-            : '<p class="menu-empty">No customers yet. Accounts created on the site will appear here.</p>';
-        return;
+            `;
+        }).join('')
+        : '<p class="admin-empty">No customers found.</p>';
+
+    refreshIcons();
+
+    customersList.querySelectorAll('[data-view-customer]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const found = customers.find(c => String(c.id || c.email) === btn.dataset.viewCustomer);
+            if (found) openCustomerHistory(found);
+        });
+    });
+    customersList.querySelectorAll('[data-delete-customer]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('Delete this customer account?')) return;
+            const found = customers.find(c => String(c.id || c.email) === btn.dataset.deleteCustomer);
+            try {
+                if (found && found.id) await deleteRow('customers', found.id);
+                const local = readLocal('emeraldUsers', []);
+                writeLocal('emeraldUsers', local.filter(c => String(c.id || c.email) !== btn.dataset.deleteCustomer));
+                showToast('Customer deleted.');
+                renderCustomers(customerSearch?.value || '');
+            } catch (error) {
+                showToast(`Could not delete customer: ${error.message}`, 'error');
+            }
+        });
+    });
+}
+
+async function openCustomerHistory(customer) {
+    let orders = [];
+    try {
+        orders = await getOrdersByEmail(customer.email);
+    } catch {
+        orders = [];
     }
 
-    customersList.innerHTML = rows.map(row => {
-        const lastSeen = row.last_seen ? new Date(row.last_seen).toLocaleString() : 'Never';
-        const remember = row.remember_me ? 'Remembered' : 'Session';
+    const currency = await getCurrencySymbol();
+    const itemsHtml = orders.length
+        ? orders.map(order => {
+            const created = order.created_at || order.createdAt || null;
+            const lineItems = Array.isArray(order.items)
+                ? order.items.map(item => `
+                    <li><span>${escapeHtml(item.name)} x${item.quantity}</span><strong>${formatMoney(Number(item.price || 0) * Number(item.quantity || 1), currency)}</strong></li>
+                `).join('')
+                : '';
+            return `
+                <div class="admin-detail-row">
+                    <span>${escapeHtml(order.order_number || 'Order')}${created ? `<br><small>${escapeHtml(new Date(created).toLocaleString())}</small>` : ''}</span>
+                    <strong>${formatMoney(order.total, currency)}</strong>
+                </div>
+                ${lineItems ? `<ul class="admin-detail-items">${lineItems}</ul>` : ''}
+            `;
+        }).join('')
+        : '<p class="admin-empty">No orders for this customer yet.</p>';
+
+    openModal(`Order history &mdash; ${escapeHtml(customer.name || 'Customer')}`, `
+        <div class="admin-detail-grid">
+            <div class="admin-detail-row">
+                <span>Email</span>
+                <strong>${escapeHtml(customer.email || '—')}</strong>
+            </div>
+            ${customer.phone ? `<div class="admin-detail-row"><span>Phone</span><strong>${escapeHtml(customer.phone)}</strong></div>` : ''}
+            ${customer.address ? `<div class="admin-detail-row"><span>Address</span><strong>${escapeHtml(customer.address)}</strong></div>` : ''}
+            <h4 style="margin-top:8px;color:var(--text-muted)">Orders (${orders.length})</h4>
+            ${itemsHtml}
+        </div>
+        <div class="admin-form-actions">
+            <button type="button" class="btn btn-secondary btn-sm" data-close-modal>Close</button>
+        </div>
+    `);
+}
+
+if (customerSearch) {
+    customerSearch.addEventListener('input', () => renderCustomers(customerSearch.value));
+}
+
+// ---------------- Settings ----------------
+
+const settingsForm = document.getElementById('settings-form');
+const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DAY_LABELS = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+const DEFAULT_HOURS = {
+    mon: { open: '09:00', close: '21:00', closed: false },
+    tue: { open: '09:00', close: '21:00', closed: false },
+    wed: { open: '09:00', close: '21:00', closed: false },
+    thu: { open: '09:00', close: '21:00', closed: false },
+    fri: { open: '09:00', close: '22:00', closed: false },
+    sat: { open: '10:00', close: '22:00', closed: false },
+    sun: { open: '10:00', close: '20:00', closed: false }
+};
+
+async function loadSetting(key, fallback = '') {
+    try {
+        const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
+        if (rows && rows.length) return rows[0].value;
+    } catch {
+        // fall through to local
+    }
+    return readLocal('emeraldSettings', {})[key] ?? fallback;
+}
+
+async function saveSetting(key, value) {
+    try {
+        const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
+        if (rows && rows.length) {
+            await updateRow('settings', rows[0].id, { value });
+        } else if (rows && !rows.length) {
+            await insertRow('settings', { id: key, value });
+        }
+    } catch {
+        // Supabase unavailable — demo mode uses localStorage below.
+    }
+    const settings = readLocal('emeraldSettings', {});
+    settings[key] = value;
+    writeLocal('emeraldSettings', settings);
+}
+
+function buildHoursGrid() {
+    const grid = document.getElementById('hours-grid');
+    if (!grid) return;
+    const hours = { ...DEFAULT_HOURS, ...(readLocal('emeraldHours', {}) || {}) };
+    grid.innerHTML = DAYS.map(day => {
+        const value = hours[day] || DEFAULT_HOURS[day];
         return `
-            <div class="admin-row">
-                <div class="admin-row-main">
-                    <strong>${escapeHtml(row.name)}</strong>
-                    <span>${escapeHtml(row.email)} &middot; Last seen: ${escapeHtml(lastSeen)}</span>
-                </div>
-                <span class="admin-badge ${row.remember_me ? 'ok' : ''}">${remember}</span>
-                <div class="admin-row-actions">
-                    <button type="button" class="admin-btn danger" data-delete-customer="${row.id}" aria-label="Delete customer"><i class="fa-solid fa-trash"></i></button>
-                </div>
+            <div class="admin-hours-day" data-day="${day}">
+                <label>${DAY_LABELS[day]} <input type="time" name="hours_${day}_open" value="${escapeHtml(value.open || '')}"></label>
+                <label>To <input type="time" name="hours_${day}_close" value="${escapeHtml(value.close || '')}"></label>
+                <label class="closed-toggle"><input type="checkbox" name="hours_${day}_closed" ${value.closed ? 'checked' : ''}> Closed</label>
             </div>
         `;
     }).join('');
 
-    customersList.querySelectorAll('[data-delete-customer]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            if (!confirm('Delete this customer account?')) return;
-            await deleteRow('customers', btn.dataset.deleteCustomer);
-            renderCustomers();
-        });
+    grid.querySelectorAll('.admin-hours-day').forEach(dayEl => {
+        const closedInput = dayEl.querySelector('[name$="_closed"]');
+        const sync = () => dayEl.classList.toggle('closed', closedInput.checked);
+        closedInput.addEventListener('change', sync);
+        sync();
     });
 }
+
+async function renderSettings() {
+    if (!settingsForm) return;
+
+    const stringFields = ['business_name', 'tagline', 'contact_email', 'contact_phone', 'address', 'logo_url',
+        'currency', 'social_instagram', 'social_facebook', 'site_title', 'site_description'];
+    for (const key of stringFields) {
+        const input = settingsForm.querySelector(`[name="${key}"]`);
+        if (!input) continue;
+        const value = await loadSetting(key, '');
+        if (input.type === 'checkbox') {
+            input.checked = value === 'true' || value === true || value === '1' || value === 'on';
+        } else {
+            input.value = value || '';
+        }
+    }
+
+    const numberFields = ['tax_rate', 'min_order', 'lead_time', 'delivery_fee'];
+    for (const key of numberFields) {
+        const input = settingsForm.querySelector(`[name="${key}"]`);
+        if (!input) continue;
+        const fallback = CONFIG.defaults[key.replace('_rate', 'Rate')] ?? '';
+        const value = await loadSetting(key, '');
+        input.value = value !== '' ? value : '';
+    }
+
+    const checkboxFields = ['delivery_enabled', 'pickup_enabled', 'maintenance_mode'];
+    for (const key of checkboxFields) {
+        const input = settingsForm.querySelector(`[name="${key}"]`);
+        if (!input) continue;
+        const fallback = key === 'maintenance_mode' ? false : true;
+        const value = await loadSetting(key, String(fallback));
+        input.checked = value === 'true' || value === true || value === '1' || value === 'on';
+    }
+
+    // Load saved hours from the settings table (JSON) or the local default.
+    const hoursRaw = await loadSetting('hours', '');
+    if (hoursRaw) {
+        try {
+            writeLocal('emeraldHours', JSON.parse(hoursRaw));
+        } catch {
+            // ignore malformed JSON
+        }
+    }
+    buildHoursGrid();
+
+    // Logo preview
+    const logoUrl = await loadSetting('logo_url', '');
+    const logoZone = document.getElementById('settings-logo-zone');
+    if (logoZone && logoUrl) {
+        const preview = logoZone.querySelector('[data-upload-preview]');
+        if (preview) {
+            preview.src = logoUrl;
+            preview.classList.remove('hidden');
+            logoZone.classList.add('has-preview');
+        }
+    }
+}
+
+function initSettingsLogoUpload() {
+    const zone = document.getElementById('settings-logo-zone');
+    if (!zone) return;
+    const input = zone.querySelector('#settings-logo-input');
+    const preview = zone.querySelector('#settings-logo-preview');
+    if (!input || !preview) return;
+    let logoDataUrl = '';
+    let logoFile = null;
+
+    function handleFile(file) {
+        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            showToast('Please choose a JPG, PNG or WebP logo.', 'error');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('Logo must be 5MB or smaller.', 'error');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            preview.src = reader.result;
+            preview.classList.remove('hidden');
+            zone.classList.add('has-preview');
+            logoDataUrl = reader.result;
+            logoFile = file;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    input.addEventListener('change', () => handleFile(input.files[0]));
+    zone.addEventListener('click', () => input.click());
+    zone.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            input.click();
+        }
+    });
+    zone.addEventListener('dragover', event => {
+        event.preventDefault();
+        zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', event => {
+        event.preventDefault();
+        zone.classList.remove('dragover');
+        if (event.dataTransfer && event.dataTransfer.files) handleFile(event.dataTransfer.files[0]);
+    });
+
+    window.emeraldLogoUpload = {
+        async getUrl() {
+            if (logoFile) {
+                if (isSupabaseConfigured()) {
+                    const url = await uploadImage(logoFile, 'logos');
+                    if (url) return url;
+                }
+                return logoDataUrl;
+            }
+            return await loadSetting('logo_url', '');
+        }
+    };
+}
+
+settingsForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const message = settingsForm.querySelector('.form-message');
+    message.textContent = '';
+    message.classList.remove('error');
+
+    const formData = new FormData(settingsForm);
+    const checkboxKeys = ['delivery_enabled', 'pickup_enabled', 'maintenance_mode'];
+    const checkboxValues = {};
+    checkboxKeys.forEach(key => {
+        checkboxValues[key] = settingsForm.querySelector(`[name="${key}"]`).checked ? 'true' : 'false';
+    });
+
+    try {
+        for (const [key, value] of formData.entries()) {
+            if (key.startsWith('hours_')) continue;
+            if (checkboxKeys.includes(key)) continue;
+            await saveSetting(key, String(value).trim());
+        }
+        for (const key of checkboxKeys) {
+            await saveSetting(key, checkboxValues[key]);
+        }
+
+        // Hours are stored as one JSON blob.
+        const hours = {};
+        DAYS.forEach(day => {
+            hours[day] = {
+                open: settingsForm.querySelector(`[name="hours_${day}_open"]`).value,
+                close: settingsForm.querySelector(`[name="hours_${day}_close"]`).value,
+                closed: settingsForm.querySelector(`[name="hours_${day}_closed"]`).checked
+            };
+        });
+        await saveSetting('hours', JSON.stringify(hours));
+        writeLocal('emeraldHours', hours);
+
+        // Upload logo (if a new one was chosen).
+        if (window.emeraldLogoUpload) {
+            const logoUrl = await window.emeraldLogoUpload.getUrl();
+            if (logoUrl) await saveSetting('logo_url', logoUrl);
+        }
+
+        message.textContent = 'Settings saved.';
+        showToast('Settings saved.');
+        setTimeout(() => { message.textContent = ''; }, 3000);
+    } catch (error) {
+        message.textContent = `Could not save settings: ${error.message}`;
+        message.classList.add('error');
+        showToast(`Could not save settings: ${error.message}`, 'error');
+    }
+});
+
+// ---------------- Data export ----------------
+
+document.getElementById('export-all-data')?.addEventListener('click', async () => {
+    const message = document.getElementById('data-export-message');
+    if (message) message.textContent = 'Preparing export&hellip;';
+    try {
+        const [menu, categories, subscribers, customers, settings] = await Promise.all([
+            getAdminItems(),
+            getAdminCategories(),
+            (async () => (await getSubscribers()) || readLocal('emeraldSubscribers', []))(),
+            getAdminCustomers(),
+            readLocal('emeraldSettings', {})
+        ]);
+        const payload = {
+            exported_at: new Date().toISOString(),
+            menu,
+            categories,
+            subscribers,
+            customers,
+            settings
+        };
+        downloadBlob(`emerald-cuisine-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2), 'application/json');
+        showToast('Backup downloaded.');
+        if (message) message.textContent = 'Backup downloaded. Keep it somewhere safe!';
+    } catch (error) {
+        showToast(`Could not export data: ${error.message}`, 'error');
+        if (message) {
+            message.textContent = `Could not export data: ${error.message}`;
+            message.classList.add('error');
+        }
+    }
+});
+
+// Settings -> Data -> "Subscribers CSV" duplicates the subscribers-tab export.
+document.getElementById('export-subscribers-data')?.addEventListener('click', async () => {
+    const message = document.getElementById('data-export-message');
+    if (message) {
+        message.textContent = '';
+        message.classList.remove('error');
+    }
+    try {
+        let rows = await getSubscribers();
+        if (!rows || !rows.length) rows = readLocal('emeraldSubscribers', []);
+        const csvRows = (rows || []).map(row => ({
+            email: row.email,
+            status: row.status || 'active',
+            subscribed_at: row.subscribed_at || row.created_at || ''
+        }));
+        downloadBlob('emerald-cuisine-subscribers.csv', toCSV(csvRows), 'text/csv');
+        showToast(`Exported ${csvRows.length} subscriber(s).`);
+        if (message) message.textContent = `Exported ${csvRows.length} subscriber(s) as CSV.`;
+    } catch (error) {
+        showToast(`Could not export subscribers: ${error.message}`, 'error');
+        if (message) {
+            message.textContent = `Could not export subscribers: ${error.message}`;
+            message.classList.add('error');
+        }
+    }
+});
 
 // ---------------- Admin credentials ----------------
 
@@ -493,43 +1593,42 @@ function initAdminCredentialsForm() {
         emailInput.value = newEmail;
         message.textContent = 'Admin credentials updated. Use them on your next sign-in.';
         message.classList.remove('error');
+        showToast('Admin credentials updated.');
     });
 }
 
-// ---------------- Settings ----------------
+// ---------------- Dashboard init ----------------
 
-const settingsForm = document.getElementById('settings-form');
-
-async function renderSettings() {
-    const current = JSON.parse(localStorage.getItem('emeraldSettings') || '{}');
-    const fields = ['hero_title', 'hero_subtitle', 'promo_banner', 'announcement'];
-    for (const key of fields) {
-        const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
-        const value = (rows && rows.length) ? rows[0].value : current[key];
-        const input = settingsForm.querySelector(`[name="${key}"]`);
-        if (input) input.value = value || '';
+function initDashboard() {
+    if (!isSupabaseConfigured()) {
+        document.getElementById('admin-config-warning').classList.remove('hidden');
     }
+    renderItems();
+    renderCategories();
+    renderPromotions();
+    renderSubscribers();
+    renderCustomers();
+    renderSettings();
+    initSettingsLogoUpload();
 }
 
-async function saveSetting(key, value) {
-    const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
-    if (rows && rows.length) {
-        await updateRow('settings', rows[0].id, { value });
-    } else if (rows && !rows.length) {
-        await insertRow('settings', { id: key, value });
-    }
-    const settings = JSON.parse(localStorage.getItem('emeraldSettings') || '{}');
-    settings[key] = value;
-    localStorage.setItem('emeraldSettings', JSON.stringify(settings));
+// Run auth init at the end of the module so every const above (itemsList,
+// categoriesList, settingsForm, etc.) has been initialized before we call
+// showDashboard() -> initDashboard() -> render*(). Otherwise the top-level
+// TDZ would throw "Cannot access 'X' before initialization".
+if (isLoggedIn()) {
+    showDashboard();
+} else {
+    loginForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const username = loginForm.querySelector('input[name="username"]').value;
+        const password = loginForm.querySelector('input[name="password"]').value;
+        if (isAdminCredentials(username, password)) {
+            sessionStorage.setItem('emeraldAdmin', '1');
+            showDashboard();
+        } else {
+            loginError.textContent = 'Incorrect username or password. Please try again.';
+        }
+    });
 }
 
-settingsForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const formData = new FormData(settingsForm);
-    for (const [key, value] of formData.entries()) {
-        await saveSetting(key, value.trim());
-    }
-    const message = settingsForm.querySelector('.form-message');
-    message.textContent = 'Settings saved.';
-    setTimeout(() => { message.textContent = ''; }, 3000);
-});

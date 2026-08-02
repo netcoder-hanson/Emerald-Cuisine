@@ -1,3 +1,4 @@
+import CONFIG from '../config.js';
 import { getSupabaseClient } from './supabase.js';
 
 // Generic helpers for reading and writing Supabase tables.
@@ -38,6 +39,120 @@ export async function deleteRow(tableName, id) {
     const { error } = await client.from(tableName).delete().eq('id', id);
     if (error) throw error;
     return true;
+}
+
+// ---------------------------------------------------------------
+// H E L P E R S   —   A D M I N   P A N E L
+// ---------------------------------------------------------------
+
+// Count rows in a table, optionally filtered by a column = value.
+export async function countRows(tableName, column = null, value = null) {
+    const client = getSupabaseClient();
+    if (!client) return null;
+    let query = client.from(tableName).select('*', { count: 'exact', head: true });
+    if (column && value !== undefined && value !== null) query = query.eq(column, value);
+    const { count, error } = await query;
+    if (error) throw error;
+    return count ?? 0;
+}
+
+// Count menu items referencing a category_id.
+export async function countMenuItemsByCategory(categoryId) {
+    return countRows('menu_items', 'category_id', categoryId);
+}
+
+// Fetch rows where a column matches any of many values (order history lookup).
+export async function fetchRowsIn(tableName, column, values) {
+    const client = getSupabaseClient();
+    if (!client) return null;
+    if (!values || !values.length) return [];
+    const { data, error } = await client.from(tableName).select('*').in(column, values);
+    if (error) throw error;
+    return data;
+}
+
+// Upload a File to Supabase Storage (bucket from config) and return the public URL.
+export async function uploadImage(file, folder = 'menu') {
+    const client = getSupabaseClient();
+    if (!client || !file) return null;
+    const bucket = CONFIG.supabase.storageBucket || 'menu-images';
+    const path = `${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const { error } = await client.storage.from(bucket).upload(path, file, {
+        upsert: false,
+        contentType: file.type
+    });
+    if (error) throw error;
+    const { data: publicUrl } = client.storage.from(bucket).getPublicUrl(path);
+    return publicUrl?.publicUrl || null;
+}
+
+// Invoke a Supabase Edge Function and return its parsed JSON response.
+export async function invokeEdgeFunction(functionName, body) {
+    const client = getSupabaseClient();
+    if (!client || !client.functions) return null;
+    const { data, error } = await client.functions.invoke(functionName, { body });
+    if (error) throw error;
+    return data;
+}
+
+// Export every table as JSON (Settings -> Data -> Export all data).
+export async function exportAllData() {
+    const tables = ['menu_items', 'categories', 'promotions', 'subscribers', 'customers', 'orders', 'settings'];
+    const result = {};
+    for (const table of tables) {
+        try {
+            const rows = await fetchRows(table, { order: 'created_at', ascending: false });
+            result[table] = rows || [];
+        } catch {
+            result[table] = [];
+        }
+    }
+    return result;
+}
+
+// CSV-safe quoting helper.
+function csvCell(value) {
+    const string = String(value ?? '');
+    return /[",\n]/.test(string) ? `"${string.replace(/"/g, '""')}"` : string;
+}
+
+// Build a CSV string from an array of objects (keys from the first row).
+export function toCSV(rows) {
+    if (!rows || !rows.length) return '';
+    const headers = Object.keys(rows[0]);
+    const lines = [headers.map(csvCell).join(',')];
+    rows.forEach(row => {
+        lines.push(headers.map(header => csvCell(row[header])).join(','));
+    });
+    return lines.join('\n');
+}
+
+// Download a blob (CSV or JSON) to the user's machine.
+export function downloadBlob(filename, content, mime = 'text/plain') {
+    const blob = new Blob([content], { type: `${mime};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// Download a JSON file.
+export function downloadAsJson(filename, data) {
+    downloadBlob(filename, JSON.stringify(data, null, 2), 'application/json');
+}
+
+// Download rows as CSV given explicit headers.
+export function downloadAsCsv(filename, headers, rows) {
+    const objects = rows.map(row => {
+        const obj = {};
+        headers.forEach(header => { obj[header] = row[header] ?? ''; });
+        return obj;
+    });
+    downloadBlob(filename, toCSV(objects), 'text/csv');
 }
 
 // ---------------- Orders ----------------

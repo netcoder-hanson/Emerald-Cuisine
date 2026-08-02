@@ -33,11 +33,12 @@ export async function getMenuItems() {
                 id: row.id,
                 name: row.name,
                 category: row.category,
+                category_id: row.category_id || null,
                 description: row.description || '',
                 price: Number(row.price),
                 rating: Number(row.rating) || 4.5,
-                image: row.image || '',
-                available: row.available !== false
+                image: row.image_url || row.image || '',
+                available: row.is_available !== false && row.available !== false
             }));
             return cachedMenu;
         }

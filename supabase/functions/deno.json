@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window", "deno.ns", "dom", "esnext"],
+    "strict": true,
+    "types": ["https://deno.land/std@0.177.0/types.d.ts"]
+  },
+  "tasks": {
+    "deploy": "supabase functions deploy send-promotion-email"
+  },
+  "imports": {
+    "std/": "https://deno.land/std@0.177.0/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}
+
