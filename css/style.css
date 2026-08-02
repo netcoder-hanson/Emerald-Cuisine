@@ -1778,6 +1778,12 @@ section {
         grid-template-columns: 1fr;
     }
 
+    .hero-copy,
+    .order-hero .hero-copy,
+    .checkout-hero .hero-copy {
+        max-width: 100%;
+    }
+
     .reservation-panel,
     .newsletter-panel,
     .footer-grid,
