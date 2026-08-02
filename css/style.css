@@ -199,6 +199,13 @@ section {
     transition: transform 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
 }
 
+.btn i,
+.btn svg {
+    display: inline-flex;
+    width: 1em;
+    height: 1em;
+}
+
 .btn:hover {
     transform: translateY(-2px);
 }
@@ -1170,7 +1177,8 @@ section {
 
 
 .modal-close,
-.lightbox-close {
+.lightbox-close,
+.cart-close {
     position: absolute;
     top: 22px;
     right: 22px;
@@ -1182,6 +1190,10 @@ section {
     color: var(--text);
     display: grid;
     place-items: center;
+}
+
+.cart-close {
+    display: none;
 }
 
 .modal-header {
@@ -1794,6 +1806,20 @@ section {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .hero-grid {
+        justify-items: center;
+        text-align: center;
+    }
+
+    .order-hero .hero-copy,
+    .order-hero-image {
+        margin-inline: auto;
+    }
+
+    .order-hero .hero-actions {
+        justify-content: center;
+    }
+
     .gallery-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -1843,8 +1869,12 @@ section {
         display: flex;
     }
 
-    .header-actions .btn {
+    .header-actions .btn:not(.cart-trigger) {
         display: none;
+    }
+
+    .header-actions .cart-trigger {
+        display: inline-flex;
     }
 
     .hero,
@@ -1875,6 +1905,30 @@ section {
     .modal-actions {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .cart-panel {
+        display: none;
+    }
+
+    .cart-panel.cart-modal-open {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        width: min(100%, 680px);
+        max-width: 680px;
+        margin: auto;
+        max-height: calc(100vh - 40px);
+        background: var(--white);
+        border-radius: 28px;
+        padding: 24px;
+        z-index: 1001;
+        box-shadow: var(--shadow-strong);
+        overflow-y: auto;
+    }
+
+    .cart-close {
+        display: grid;
     }
 
     .reservation-panel,

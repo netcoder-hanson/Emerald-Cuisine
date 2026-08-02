@@ -31,7 +31,7 @@
                 </ul>
             </nav>
             <div class="header-actions">
-                <button type="button" class="btn btn-secondary cart-trigger" aria-label="View cart">
+                <button type="button" class="btn btn-secondary cart-trigger" aria-label="View cart" aria-expanded="false">
                     <i data-lucide="shopping-cart" aria-hidden="true"></i>
                     <span>Cart</span>
                     <span class="cart-count" aria-hidden="true">0</span>
@@ -55,7 +55,7 @@
                     <p>Browse our premium menu, choose your favourites and complete the order with a secure checkout.</p>
                     <div class="hero-actions">
                         <a href="#order-menu" class="btn btn-primary">Browse menu</a>
-                        <a href="#cart" class="btn btn-outline">View cart</a>
+                        <a href="#cart" class="btn btn-outline"><i data-lucide="shopping-cart" aria-hidden="true"></i> View cart</a>
                     </div>
                 </div>
                 <div class="hero-media order-hero-image">
@@ -99,6 +99,9 @@
                 </div>
 
                 <aside class="cart-panel scroll-panel" id="cart">
+                    <button type="button" class="modal-close cart-close" aria-label="Close cart">
+                        <i data-lucide="x" aria-hidden="true"></i>
+                    </button>
                     <div class="cart-header">
                         <span class="eyebrow">Your cart</span>
                         <h3>Selected items</h3>
@@ -174,6 +177,7 @@
         <i data-lucide="shopping-cart" aria-hidden="true"></i>
         <span class="floating-cart-count" aria-hidden="true">0</span>
     </a>
+    <div class="modal-overlay" id="cartOverlay" aria-hidden="true"></div>
     <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="js/script.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
