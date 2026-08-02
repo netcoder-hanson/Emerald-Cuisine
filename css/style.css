@@ -191,11 +191,19 @@ section {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 10px;
     border: none;
     border-radius: 999px;
     padding: 14px 28px;
     font-weight: 600;
     transition: transform 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.btn i,
+.btn svg {
+    display: inline-flex;
+    width: 1em;
+    height: 1em;
 }
 
 .btn:hover {
@@ -1087,7 +1095,7 @@ section {
     line-height: 1;
 }
 
-@media (min-width: 861px) {
+@media (min-width: 1101px) {
     .floating-cart.show {
         display: none;
     }
@@ -1105,10 +1113,14 @@ section {
 }
 
 .order-hero.reveal,
-.order-section.reveal,
 .footer.reveal {
     opacity: 1 !important;
     transform: translateY(0) !important;
+}
+
+.order-section.reveal {
+    opacity: 1 !important;
+    transform: none !important;
 }
 
 .reservation-modal,
@@ -1169,7 +1181,8 @@ section {
 
 
 .modal-close,
-.lightbox-close {
+.lightbox-close,
+.cart-close {
     position: absolute;
     top: 22px;
     right: 22px;
@@ -1181,6 +1194,10 @@ section {
     color: var(--text);
     display: grid;
     place-items: center;
+}
+
+.cart-close {
+    display: none;
 }
 
 .modal-header {
@@ -1778,6 +1795,36 @@ section {
         grid-template-columns: 1fr;
     }
 
+    .hero-copy,
+    .order-hero .hero-copy,
+    .checkout-hero .hero-copy {
+        max-width: 100%;
+    }
+
+    .cart-panel {
+        display: none;
+    }
+
+    .cart-panel.cart-modal-open {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        width: min(100%, 680px);
+        max-width: 680px;
+        margin: auto;
+        max-height: calc(100vh - 40px);
+        background: var(--white);
+        border-radius: 28px;
+        padding: 24px;
+        z-index: 1001;
+        box-shadow: var(--shadow-strong);
+        overflow-y: auto;
+    }
+
+    .cart-close {
+        display: grid;
+    }
+
     .reservation-panel,
     .newsletter-panel,
     .footer-grid,
@@ -1791,6 +1838,20 @@ section {
     .why-grid,
     .testimonial-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .hero-grid {
+        justify-items: center;
+        text-align: center;
+    }
+
+    .order-hero .hero-copy,
+    .order-hero-image {
+        margin-inline: auto;
+    }
+
+    .order-hero .hero-actions {
+        justify-content: center;
     }
 
     .gallery-grid {
@@ -1842,8 +1903,12 @@ section {
         display: flex;
     }
 
-    .header-actions .btn {
+    .header-actions .btn:not(.cart-trigger) {
         display: none;
+    }
+
+    .header-actions .cart-trigger {
+        display: inline-flex;
     }
 
     .hero,
@@ -1888,6 +1953,32 @@ section {
 
     .footer-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 1024px) {
+    .cart-panel {
+        display: none;
+    }
+
+    .cart-panel.cart-modal-open {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        width: min(100%, 680px);
+        max-width: 680px;
+        margin: auto;
+        max-height: calc(100vh - 40px);
+        background: var(--white);
+        border-radius: 28px;
+        padding: 24px;
+        z-index: 1001;
+        box-shadow: var(--shadow-strong);
+        overflow-y: auto;
+    }
+
+    .cart-close {
+        display: grid;
     }
 }
 

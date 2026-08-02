@@ -24,8 +24,25 @@ const lightboxClose = document.querySelector('.lightbox-close');
 const galleryItems = document.querySelectorAll('.gallery-item');
 const backToTop = document.getElementById('backToTop');
 const links = document.querySelectorAll('nav a[href^="#"]');
+const scrollPanels = document.querySelectorAll('.scroll-panel');
 const revealElements = document.querySelectorAll('.reveal');
 let lastFocusedElement = null;
+
+function scrollPageToTop() {
+    const scrollRoot = document.scrollingElement || document.documentElement || document.body;
+    if (scrollRoot) {
+        scrollRoot.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    }
+    scrollPanels.forEach(panel => {
+        panel.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+}
+
+function handleScrollVisibility() {
+    const isScrolled = window.scrollY > 520 || Array.from(scrollPanels).some(panel => panel.scrollTop > 520);
+    if (!backToTop) return;
+    backToTop.classList.toggle('show', isScrolled);
+}
 
 function toggleMobileMenu(open) {
     const isOpen = open === undefined ? !navLinks.classList.contains('active') : open;
@@ -55,16 +72,18 @@ window.addEventListener('scroll', () => {
         header.classList.remove('scrolled');
     }
 
-    if (window.scrollY > 520) {
-        backToTop.classList.add('show');
-    } else {
-        backToTop.classList.remove('show');
-    }
+    handleScrollVisibility();
+});
+
+scrollPanels.forEach(panel => {
+    panel.addEventListener('scroll', handleScrollVisibility);
 });
 
 if (backToTop) {
-    backToTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    backToTop.addEventListener('click', scrollPageToTop);
 }
+
+handleScrollVisibility();
 
 links.forEach(link => {
     link.addEventListener('click', event => {
