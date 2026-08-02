@@ -75,6 +75,50 @@ const vatElement = document.getElementById('cart-vat');
 const totalElement = document.getElementById('cart-total');
 const searchInput = document.getElementById('menu-search');
 const categorySelect = document.getElementById('category-select');
+const cartOverlay = document.getElementById('cartOverlay');
+const cartPanel = document.getElementById('cart');
+const cartCloseButton = document.querySelector('.cart-close');
+const cartTriggerButton = document.querySelector('.cart-trigger');
+let lastCartFocused = null;
+
+function isMobileCartModal() {
+    return window.matchMedia('(max-width: 860px)').matches;
+}
+
+function openCartModal() {
+    if (!cartPanel) return;
+    lastCartFocused = document.activeElement;
+    cartPanel.classList.add('cart-modal-open');
+    cartPanel.setAttribute('aria-hidden', 'false');
+    cartPanel.setAttribute('tabindex', '-1');
+    document.body.classList.add('modal-open');
+    if (cartOverlay) {
+        cartOverlay.classList.add('active');
+        cartOverlay.setAttribute('aria-hidden', 'false');
+    }
+    if (cartTriggerButton) {
+        cartTriggerButton.setAttribute('aria-expanded', 'true');
+    }
+    cartPanel.focus({ preventScroll: true });
+}
+
+function closeCartModal() {
+    if (!cartPanel) return;
+    cartPanel.classList.remove('cart-modal-open');
+    cartPanel.setAttribute('aria-hidden', 'true');
+    if (cartOverlay) {
+        cartOverlay.classList.remove('active');
+        cartOverlay.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('modal-open');
+    if (cartTriggerButton) {
+        cartTriggerButton.setAttribute('aria-expanded', 'false');
+    }
+    if (lastCartFocused instanceof HTMLElement) {
+        lastCartFocused.focus();
+        lastCartFocused = null;
+    }
+}
 
 function renderCart() {
     const cart = getCart();
@@ -135,6 +179,15 @@ function updateCartCount() {
         if (countBadge) countBadge.textContent = count;
         floatingCart.classList.toggle('show', count > 0);
     }
+}
+
+function scrollCartIntoView() {
+    const cartSection = document.getElementById('cart');
+    if (!cartSection) return;
+
+    cartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    cartSection.setAttribute('tabindex', '-1');
+    cartSection.focus({ preventScroll: true });
 }
 
 function renderMenu(items) {
@@ -208,6 +261,37 @@ if (searchInput) {
 if (categorySelect) {
     categorySelect.addEventListener('change', filterMenu);
 }
+
+document.querySelectorAll('.cart-trigger, #floatingCart, a[href="#cart"]').forEach(trigger => {
+    trigger.addEventListener('click', event => {
+        event.preventDefault();
+        if (isMobileCartModal()) {
+            openCartModal();
+        } else {
+            scrollCartIntoView();
+        }
+    });
+});
+
+if (cartCloseButton) {
+    cartCloseButton.addEventListener('click', closeCartModal);
+}
+
+if (cartOverlay) {
+    cartOverlay.addEventListener('click', closeCartModal);
+}
+
+window.addEventListener('resize', () => {
+    if (!isMobileCartModal()) {
+        closeCartModal();
+    }
+});
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && cartPanel?.classList.contains('cart-modal-open')) {
+        closeCartModal();
+    }
+});
 
 const trackButton = document.getElementById('track-order-btn');
 const trackNumberInput = document.getElementById('track-order-number');
