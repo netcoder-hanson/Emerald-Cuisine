@@ -3,6 +3,22 @@ import { fetchRows } from './store.js';
 let cachedMenu = null;
 let cachedCategories = null;
 
+// Wraps a promise with a timeout so a slow/unreachable backend never
+// leaves the menu blank — we fall back to the local menu.json instead.
+async function withTimeout(promise, ms = 6000) {
+    let timer;
+    try {
+        return await Promise.race([
+            promise,
+            new Promise((_, reject) => {
+                timer = setTimeout(() => reject(new Error('Request timed out')), ms);
+            })
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // Menu items come from the Supabase "menu_items" table when configured,
 // otherwise they fall back to the local data/menu.json (demo mode).
 // If Supabase is configured but unreachable/empty, we also fall back
@@ -11,7 +27,7 @@ export async function getMenuItems() {
     if (cachedMenu) return cachedMenu;
 
     try {
-        const rows = await fetchRows('menu_items', { order: 'name', ascending: true });
+        const rows = await withTimeout(fetchRows('menu_items', { order: 'name', ascending: true }));
         if (rows && rows.length) {
             cachedMenu = rows.map(row => ({
                 id: row.id,
@@ -66,7 +82,7 @@ export async function getCategories() {
     if (cachedCategories) return cachedCategories;
 
     try {
-        const rows = await fetchRows('categories', { order: 'sort_order', ascending: true });
+        const rows = await withTimeout(fetchRows('categories', { order: 'sort_order', ascending: true }));
         if (rows && rows.length) {
             cachedCategories = rows.map(row => ({
                 id: row.id,

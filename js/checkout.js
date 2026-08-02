@@ -1,4 +1,4 @@
-import { getCart, formatPrice, calculateTotals, clearCart, escapeHtml } from './utils/cart.js';
+import { getCart, formatPrice, calculateTotals, clearCart, escapeHtml, getCartItemDetails } from './utils/cart.js';
 import { getMenuItems } from './utils/menu.js';
 import { saveOrder } from './utils/store.js';
 import { sendOrderEmails } from './utils/email.js';
@@ -41,7 +41,7 @@ async function getCartItems() {
     const menuItems = await getMenuItems();
 
     return Object.entries(cart).map(([id, quantity]) => {
-        const item = menuItems.find(menu => menu.id === id);
+        const item = menuItems.find(menu => menu.id === id) || getCartItemDetails(id);
         return item ? { ...item, quantity } : null;
     }).filter(Boolean);
 }

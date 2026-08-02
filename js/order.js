@@ -1,6 +1,7 @@
-import { getCart, saveCart, formatPrice, calculateTotals, getCartItemCount, escapeHtml } from './utils/cart.js';
+import { getCart, saveCart, formatPrice, calculateTotals, getCartItemCount, escapeHtml, getCartItemDetails, saveCartItemDetails, removeCartItemDetails } from './utils/cart.js';
 import { getMenuItems } from './utils/menu.js';
 import { getCurrentUser, loginOrRegister } from './utils/auth.js';
+import { isAdminCredentials } from './utils/admin.js';
 
 let menuItems = [];
 
@@ -158,6 +159,15 @@ function attachAuthGateEvents() {
             errorBox.classList.remove('error');
         }
 
+        // Admin sign-in (username or email + admin password) opens the dashboard.
+        const enteredIdentifier = String(data.get('email') || '').trim().toLowerCase();
+        if (isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
+            sessionStorage.setItem('emeraldAdmin', '1');
+            closeAuthGate();
+            window.location.href = 'admin.html';
+            return;
+        }
+
         try {
             await loginOrRegister({
                 name: data.get('name'),
@@ -218,7 +228,7 @@ function closeCartModal() {
 function renderCart() {
     const cart = getCart();
     const items = Object.keys(cart).map(id => {
-        const item = menuItems.find(menu => menu.id === id);
+        const item = menuItems.find(menu => menu.id === id) || getCartItemDetails(id);
         return item ? { ...item, quantity: cart[id] } : null;
     }).filter(Boolean);
 
@@ -328,6 +338,8 @@ function addToCart(itemId) {
     const cart = getCart();
     cart[itemId] = Math.min((cart[itemId] || 0) + 1, 99);
     saveCart(cart);
+    const item = menuItems.find(menu => menu.id === itemId);
+    if (item) saveCartItemDetails(itemId, item);
     renderCart();
     updateCartCount();
 }
@@ -336,6 +348,7 @@ function removeFromCart(itemId) {
     const cart = getCart();
     delete cart[itemId];
     saveCart(cart);
+    removeCartItemDetails(itemId);
     renderCart();
     updateCartCount();
 }

@@ -1,4 +1,6 @@
 import { getCurrentUser, restoreSession, loginOrRegister, logoutUser } from './auth.js';
+import CONFIG from '../config.js';
+import { isAdminCredentials, getAdminCredentials } from './admin.js';
 
 // Shared auth UI injected into the header of every page.
 // Shows a "Sign in" button when logged out, or a small account
@@ -70,6 +72,7 @@ function buildModal() {
                     <button type="submit" class="btn btn-primary btn-full">Sign in</button>
                     <button type="button" class="btn btn-secondary btn-full auth-modal-close">Cancel</button>
                 </div>
+                <p class="auth-admin-hint">Owner? Sign in with <strong>admin</strong> + your admin password to open the dashboard.</p>
             </form>
         </div>
     `;
@@ -126,6 +129,22 @@ async function onSubmit(event) {
 
     message.textContent = '';
     message.classList.remove('error');
+
+    // Admin sign-in: a matching admin username OR email + the admin
+    // password opens the dashboard.
+    const enteredIdentifier = String(data.get('email') || '').trim().toLowerCase();
+    if (isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
+        sessionStorage.setItem('emeraldAdmin', '1');
+        window.location.href = 'admin.html';
+        return;
+    }
+    const adminCreds = getAdminCredentials();
+    const adminEmail = String(adminCreds.email || CONFIG.adminEmail || '').trim().toLowerCase();
+    if (adminEmail && enteredIdentifier === adminEmail) {
+        message.textContent = 'Incorrect admin password.';
+        message.classList.add('error');
+        return;
+    }
 
     try {
         if (submitButton) {
@@ -189,6 +208,11 @@ function renderAuthSlot() {
             <strong>${escapeHtml(user.name)}</strong>
             <span>${escapeHtml(user.email)}</span>
         </div>
+        ${isAdminCredentials(user.email) || isAdminCredentials(user.name) ? `
+            <a href="admin.html" class="auth-menu-item">
+                <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Admin dashboard
+            </a>
+        ` : ''}
         <button type="button" class="auth-menu-item" data-auth-logout>
             <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign out
         </button>

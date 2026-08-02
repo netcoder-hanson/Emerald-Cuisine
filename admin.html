@@ -24,14 +24,18 @@
         <form id="login-form" class="admin-card" novalidate>
             <span class="eyebrow">Admin only</span>
             <h1>Admin login</h1>
-            <p>Enter the admin password to manage the site.</p>
+            <p>Enter your admin username and password to manage the site.</p>
+            <label>
+                Username
+                <input type="text" name="username" placeholder="Admin username" autocomplete="username" required>
+            </label>
             <label>
                 Password
-                <input type="password" name="password" placeholder="Admin password" required>
+                <input type="password" name="password" placeholder="Admin password" autocomplete="current-password" required>
             </label>
             <p class="form-message error" id="login-error" aria-live="polite"></p>
             <button type="submit" class="btn btn-primary btn-full">Sign in</button>
-            <p class="admin-hint">Default password: admin123 (change it in js/config.js)</p>
+            <p class="admin-hint">Default login: admin / admin123. You can change these in the dashboard Settings.</p>
         </form>
     </main>
 
@@ -132,6 +136,31 @@
                         <textarea name="announcement" rows="2" placeholder="News or announcements for visitors"></textarea>
                     </label>
                     <button type="submit" class="btn btn-primary">Save settings</button>
+                    <p class="form-message" aria-live="polite"></p>
+                </form>
+
+                <form id="admin-credentials-form" class="admin-form visible" novalidate>
+                    <h3>Admin credentials</h3>
+                    <p>Update the username and password used to open this dashboard.</p>
+                    <div class="admin-form-grid">
+                        <label>
+                            Admin username
+                            <input type="text" name="adminUsername" placeholder="admin" required>
+                        </label>
+                        <label>
+                            Admin email (optional, allows email sign-in)
+                            <input type="email" name="adminEmail" placeholder="admin@emeraldscuisine.com">
+                        </label>
+                        <label>
+                            Current password
+                            <input type="password" name="currentPassword" placeholder="Current admin password" autocomplete="current-password" required>
+                        </label>
+                        <label>
+                            New password
+                            <input type="password" name="newPassword" placeholder="New admin password" autocomplete="new-password" required>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update credentials</button>
                     <p class="form-message" aria-live="polite"></p>
                 </form>
             </section>

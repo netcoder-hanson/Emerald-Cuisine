@@ -4,6 +4,7 @@ import { fetchRows, insertRow, updateRow, deleteRow, getSubscribers, removeSubsc
 import { sendPromoEmails } from './utils/email.js';
 import { CATEGORY_SLUGS } from './utils/menu.js';
 import { escapeHtml, formatPrice } from './utils/cart.js';
+import { getAdminCredentials, saveAdminCredentials, isAdminCredentials } from './utils/admin.js';
 
 const loginView = document.getElementById('admin-login');
 const dashboard = document.getElementById('admin-dashboard');
@@ -18,6 +19,7 @@ function showDashboard() {
     loginView.classList.add('hidden');
     dashboard.classList.remove('hidden');
     initDashboard();
+    initAdminCredentialsForm();
 }
 
 if (isLoggedIn()) {
@@ -25,12 +27,13 @@ if (isLoggedIn()) {
 } else {
     loginForm.addEventListener('submit', event => {
         event.preventDefault();
+        const username = loginForm.querySelector('input[name="username"]').value;
         const password = loginForm.querySelector('input[name="password"]').value;
-        if (password === CONFIG.adminPassword) {
+        if (isAdminCredentials(username, password)) {
             sessionStorage.setItem('emeraldAdmin', '1');
             showDashboard();
         } else {
-            loginError.textContent = 'Incorrect password. Please try again.';
+            loginError.textContent = 'Incorrect username or password. Please try again.';
         }
     });
 }
@@ -443,6 +446,53 @@ async function renderCustomers() {
             await deleteRow('customers', btn.dataset.deleteCustomer);
             renderCustomers();
         });
+    });
+}
+
+// ---------------- Admin credentials ----------------
+
+const adminCredentialsForm = document.getElementById('admin-credentials-form');
+
+function initAdminCredentialsForm() {
+    if (!adminCredentialsForm) return;
+    const creds = getAdminCredentials();
+    const usernameInput = adminCredentialsForm.querySelector('[name="adminUsername"]');
+    const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
+    if (usernameInput) usernameInput.value = creds.username || '';
+    if (emailInput) emailInput.value = creds.email || '';
+
+    adminCredentialsForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const message = adminCredentialsForm.querySelector('.form-message');
+        const data = new FormData(adminCredentialsForm);
+        const currentPassword = String(data.get('currentPassword') || '');
+        const newPassword = String(data.get('newPassword') || '').trim();
+        const newUsername = String(data.get('adminUsername') || '').trim();
+        const newEmail = String(data.get('adminEmail') || '').trim();
+
+        message.textContent = '';
+        message.classList.remove('error');
+
+        if (!isAdminCredentials(creds.username, currentPassword)) {
+            message.textContent = 'Current password is incorrect.';
+            message.classList.add('error');
+            return;
+        }
+        if (newPassword.length < 6) {
+            message.textContent = 'New password must be at least 6 characters.';
+            message.classList.add('error');
+            return;
+        }
+        if (!saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail })) {
+            message.textContent = 'Please enter a valid username and password.';
+            message.classList.add('error');
+            return;
+        }
+        adminCredentialsForm.reset();
+        usernameInput.value = newUsername;
+        emailInput.value = newEmail;
+        message.textContent = 'Admin credentials updated. Use them on your next sign-in.';
+        message.classList.remove('error');
     });
 }
 

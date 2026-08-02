@@ -10,8 +10,49 @@ export function saveCart(cart) {
     localStorage.setItem('emeraldCart', JSON.stringify(cart));
 }
 
+const CART_ITEMS_KEY = 'emeraldCartItems';
+
+// Store a small snapshot of each added item so the cart and checkout
+// summary can still render even if the live menu source changes (e.g.
+// Supabase -> menu.json fallback) and the menu ids no longer match.
+export function getCartItemDetails(id) {
+    try {
+        return JSON.parse(localStorage.getItem(CART_ITEMS_KEY) || '{}')[id] || null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveCartItemDetails(id, item) {
+    if (!id || !item) return;
+    try {
+        const map = JSON.parse(localStorage.getItem(CART_ITEMS_KEY) || '{}');
+        map[id] = {
+            id,
+            name: item.name,
+            price: Number(item.price) || 0,
+            image: item.image || '',
+            description: item.description || ''
+        };
+        localStorage.setItem(CART_ITEMS_KEY, JSON.stringify(map));
+    } catch {
+        // Storage unavailable — ignore.
+    }
+}
+
+export function removeCartItemDetails(id) {
+    try {
+        const map = JSON.parse(localStorage.getItem(CART_ITEMS_KEY) || '{}');
+        delete map[id];
+        localStorage.setItem(CART_ITEMS_KEY, JSON.stringify(map));
+    } catch {
+        // Storage unavailable — ignore.
+    }
+}
+
 export function clearCart() {
     localStorage.removeItem('emeraldCart');
+    localStorage.removeItem(CART_ITEMS_KEY);
 }
 
 export function formatPrice(value) {

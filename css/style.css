@@ -1,3 +1,4 @@
+
 :root {
     --jade: #0F7A5A;
     --jade-dark: #0A5C43;
@@ -578,6 +579,18 @@ section {
     gap: 10px;
 }
 
+.auth-admin-hint {
+    margin-top: 14px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.6;
+}
+
+.auth-admin-hint strong {
+    color: var(--jade);
+}
+
 @media (max-width: 860px) {
     .auth-signin-btn {
         display: none;
@@ -1154,6 +1167,23 @@ section {
     overflow: hidden;
     border-radius: 28px;
     cursor: pointer;
+    border: none;
+    outline: none;
+    padding: 0;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    box-shadow: none;
+}
+
+.gallery-item:hover {
+    box-shadow: none;
+    border-color: transparent;
+}
+
+.gallery-item:focus-visible {
+    outline: 3px solid var(--jade);
+    outline-offset: 3px;
 }
 
 .gallery-item:nth-child(1),
@@ -2572,6 +2602,55 @@ section {
 
 /* ============ Homepage reviews section ============ */
 
+.reviews {
+    background: linear-gradient(160deg, rgba(15, 122, 90, 0.07), rgba(200, 162, 76, 0.06)), var(--ivory-soft);
+    position: relative;
+    overflow: hidden;
+}
+
+.reviews::before {
+    content: '';
+    position: absolute;
+    top: -120px;
+    right: -80px;
+    width: 420px;
+    height: 420px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(15, 122, 90, 0.14), transparent 70%);
+    pointer-events: none;
+}
+
+.reviews::after {
+    content: '';
+    position: absolute;
+    bottom: -140px;
+    left: -60px;
+    width: 380px;
+    height: 380px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(200, 162, 76, 0.14), transparent 70%);
+    pointer-events: none;
+}
+
+.reviews .section-inner {
+    position: relative;
+    z-index: 1;
+}
+
+.review-form {
+    position: relative;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.42));
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    border-radius: 28px;
+    padding: 32px;
+    display: grid;
+    gap: 20px;
+    box-shadow: 0 24px 60px rgba(15, 122, 90, 0.14), 0 8px 24px rgba(17, 17, 17, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    z-index: 1;
+}
+
 .reviews-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2608,18 +2687,38 @@ section {
     color: var(--text-muted);
 }
 
-.review-form {
-    background: var(--white);
-    border: 1px solid rgba(17, 17, 17, 0.06);
-    border-radius: 28px;
-    padding: 32px;
-    display: grid;
-    gap: 20px;
-}
-
 .review-form h3 {
     color: var(--black);
     font-size: 1.4rem;
+}
+
+.review-form input,
+.review-form select,
+.review-form textarea {
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--text);
+    font-weight: 400;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.7);
+    transition: border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.review-form input:focus,
+.review-form select:focus,
+.review-form textarea:focus {
+    outline: none;
+    border-color: var(--jade);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 0 4px rgba(15, 122, 90, 0.14), 0 4px 16px rgba(15, 122, 90, 0.08);
+}
+
+.review-form textarea {
+    resize: vertical;
 }
 
 /* ============ Admin page ============ */
