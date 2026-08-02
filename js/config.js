@@ -91,6 +91,17 @@ export default CONFIG;
 //   created_at timestamptz default now()
 // );
 //
+// create table customers (
+//   id uuid primary key default gen_random_uuid(),
+//   name text not null,
+//   email text not null unique,
+//   password_hash text not null,
+//   session_token text,
+//   remember_me boolean default false,
+//   last_seen timestamptz default now(),
+//   created_at timestamptz default now()
+// );
+//
 // create table promotions (
 //   id uuid primary key default gen_random_uuid(),
 //   title text not null,

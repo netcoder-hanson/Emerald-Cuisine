@@ -60,6 +60,7 @@ function initDashboard() {
     renderCategories();
     renderPromotions();
     renderSubscribers();
+    renderCustomers();
     renderSettings();
 }
 
@@ -381,6 +382,66 @@ async function renderSubscribers() {
         btn.addEventListener('click', async () => {
             await removeSubscriber(btn.dataset.deleteSubscriber);
             renderSubscribers();
+        });
+    });
+}
+
+// ---------------- Customers ----------------
+
+const customersList = document.getElementById('customers-list');
+
+async function renderCustomers() {
+    let rows = null;
+    try {
+        rows = await fetchRows('customers', { order: 'created_at', ascending: false });
+    } catch {
+        rows = null;
+    }
+
+    // Demo/fallback: show local users in case Supabase is not configured.
+    if (!rows || !rows.length) {
+        let localUsers = [];
+        try {
+            localUsers = JSON.parse(localStorage.getItem('emeraldUsers') || '[]');
+        } catch {
+            localUsers = [];
+        }
+        customersList.innerHTML = localUsers.length
+            ? localUsers.map(user => `
+                <div class="admin-row">
+                    <div class="admin-row-main">
+                        <strong>${escapeHtml(user.name || '')}</strong>
+                        <span>${escapeHtml(user.email || '')}</span>
+                    </div>
+                    <span class="admin-badge ok">Local</span>
+                </div>
+            `).join('')
+            : '<p class="menu-empty">No customers yet. Accounts created on the site will appear here.</p>';
+        return;
+    }
+
+    customersList.innerHTML = rows.map(row => {
+        const lastSeen = row.last_seen ? new Date(row.last_seen).toLocaleString() : 'Never';
+        const remember = row.remember_me ? 'Remembered' : 'Session';
+        return `
+            <div class="admin-row">
+                <div class="admin-row-main">
+                    <strong>${escapeHtml(row.name)}</strong>
+                    <span>${escapeHtml(row.email)} &middot; Last seen: ${escapeHtml(lastSeen)}</span>
+                </div>
+                <span class="admin-badge ${row.remember_me ? 'ok' : ''}">${remember}</span>
+                <div class="admin-row-actions">
+                    <button type="button" class="admin-btn danger" data-delete-customer="${row.id}" aria-label="Delete customer"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    customersList.querySelectorAll('[data-delete-customer]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('Delete this customer account?')) return;
+            await deleteRow('customers', btn.dataset.deleteCustomer);
+            renderCustomers();
         });
     });
 }

@@ -2,10 +2,36 @@ import { getCart, formatPrice, calculateTotals, clearCart, escapeHtml } from './
 import { getMenuItems } from './utils/menu.js';
 import { saveOrder } from './utils/store.js';
 import { sendOrderEmails } from './utils/email.js';
+import { getCurrentUser, restoreSession } from './utils/auth.js';
 
 const checkoutForm = document.querySelector('.checkout-form');
 const summaryItemsContainer = document.querySelector('.summary-items');
 const summarySubtotal = document.getElementById('summary-subtotal');
+
+async function ensureSignedIn() {
+    const currentUser = getCurrentUser();
+    if (currentUser) return currentUser;
+
+    const restoredUser = await restoreSession();
+    if (restoredUser) return restoredUser;
+
+    window.location.href = 'order.html';
+    return null;
+}
+
+// Pre-fill the checkout name/email fields from the signed-in user.
+function prefillCheckout(user) {
+    if (!checkoutForm || !user) return;
+    const nameInput = checkoutForm.querySelector('input[name="fullName"]');
+    const emailInput = checkoutForm.querySelector('input[name="email"]');
+    if (nameInput && !nameInput.value.trim()) {
+        nameInput.value = user.name || '';
+    }
+    if (emailInput && !emailInput.value.trim()) {
+        emailInput.value = user.email || '';
+    }
+}
+
 const summaryDelivery = document.getElementById('summary-delivery');
 const summaryVat = document.getElementById('summary-vat');
 const summaryTotal = document.getElementById('summary-total');
@@ -116,4 +142,10 @@ if (checkoutForm) {
     });
 }
 
-renderSummary();
+async function initCheckout() {
+    const user = await ensureSignedIn();
+    if (user) prefillCheckout(user);
+    renderSummary();
+}
+
+initCheckout();
