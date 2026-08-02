@@ -178,6 +178,9 @@ function attachAuthGateEvents() {
 
 function isMobileCartModal() {
     return window.matchMedia('(max-width: 1024px)').matches;
+function isMobileCartModal() {
+    return window.matchMedia('(max-width: 1024px)').matches;
+    return window.matchMedia('(max-width: 1100px)').matches;
 }
 
 function openCartModal() {
@@ -456,7 +459,7 @@ function renderOrderTracking(orderNumber) {
         <ul class="track-steps">${statusItems}</ul>
     `;
 }
-
+   
 if (trackButton && trackNumberInput && trackStatus) {
     trackButton.addEventListener('click', () => {
         const orderNumber = trackNumberInput.value.trim().toUpperCase();
