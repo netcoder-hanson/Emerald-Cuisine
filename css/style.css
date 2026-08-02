@@ -1095,7 +1095,7 @@ section {
     line-height: 1;
 }
 
-@media (min-width: 861px) {
+@media (min-width: 1101px) {
     .floating-cart.show {
         display: none;
     }
@@ -1113,10 +1113,14 @@ section {
 }
 
 .order-hero.reveal,
-.order-section.reveal,
 .footer.reveal {
     opacity: 1 !important;
     transform: translateY(0) !important;
+}
+
+.order-section.reveal {
+    opacity: 1 !important;
+    transform: none !important;
 }
 
 .reservation-modal,
@@ -1791,6 +1795,36 @@ section {
         grid-template-columns: 1fr;
     }
 
+    .hero-copy,
+    .order-hero .hero-copy,
+    .checkout-hero .hero-copy {
+        max-width: 100%;
+    }
+
+    .cart-panel {
+        display: none;
+    }
+
+    .cart-panel.cart-modal-open {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        width: min(100%, 680px);
+        max-width: 680px;
+        margin: auto;
+        max-height: calc(100vh - 40px);
+        background: var(--white);
+        border-radius: 28px;
+        padding: 24px;
+        z-index: 1001;
+        box-shadow: var(--shadow-strong);
+        overflow-y: auto;
+    }
+
+    .cart-close {
+        display: grid;
+    }
+
     .reservation-panel,
     .newsletter-panel,
     .footer-grid,
@@ -1905,30 +1939,6 @@ section {
     .modal-actions {
         flex-direction: column;
         align-items: stretch;
-    }
-
-    .cart-panel {
-        display: none;
-    }
-
-    .cart-panel.cart-modal-open {
-        display: flex;
-        position: fixed;
-        inset: 0;
-        width: min(100%, 680px);
-        max-width: 680px;
-        margin: auto;
-        max-height: calc(100vh - 40px);
-        background: var(--white);
-        border-radius: 28px;
-        padding: 24px;
-        z-index: 1001;
-        box-shadow: var(--shadow-strong);
-        overflow-y: auto;
-    }
-
-    .cart-close {
-        display: grid;
     }
 
     .reservation-panel,
