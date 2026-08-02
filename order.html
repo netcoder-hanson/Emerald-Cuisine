@@ -31,7 +31,11 @@
                 </ul>
             </nav>
             <div class="header-actions">
-                <a href="checkout.html" class="btn btn-secondary">Checkout<span class="cart-count" aria-hidden="true">0</span></a>
+                <button type="button" class="btn btn-secondary cart-trigger" aria-label="View cart">
+                    <i data-lucide="shopping-cart" aria-hidden="true"></i>
+                    <span>Cart</span>
+                    <span class="cart-count" aria-hidden="true">0</span>
+                </button>
                 <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
                     <span></span>
                     <span></span>
@@ -165,11 +169,12 @@
         </div>
     </footer>
 
-    <button id="backToTop" aria-label="Scroll to top"><i class="fa-solid fa-arrow-up"></i></button>
+    <button id="backToTop" aria-label="Scroll to top"><i data-lucide="arrow-up" aria-hidden="true"></i></button>
     <a href="#cart" class="floating-cart" id="floatingCart" aria-label="View your cart">
-        <i class="fa-solid fa-basket-shopping"></i>
+        <i data-lucide="shopping-cart" aria-hidden="true"></i>
         <span class="floating-cart-count" aria-hidden="true">0</span>
     </a>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="js/script.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script type="module" src="js/order.js"></script>

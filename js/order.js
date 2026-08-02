@@ -137,6 +137,15 @@ function updateCartCount() {
     }
 }
 
+function scrollCartIntoView() {
+    const cartSection = document.getElementById('cart');
+    if (!cartSection) return;
+
+    cartSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    cartSection.setAttribute('tabindex', '-1');
+    cartSection.focus({ preventScroll: true });
+}
+
 function renderMenu(items) {
     if (!orderGrid) return;
 
@@ -208,6 +217,13 @@ if (searchInput) {
 if (categorySelect) {
     categorySelect.addEventListener('change', filterMenu);
 }
+
+document.querySelectorAll('.cart-trigger, a[href="#cart"]').forEach(trigger => {
+    trigger.addEventListener('click', event => {
+        event.preventDefault();
+        scrollCartIntoView();
+    });
+});
 
 const trackButton = document.getElementById('track-order-btn');
 const trackNumberInput = document.getElementById('track-order-number');

@@ -191,6 +191,7 @@ section {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 10px;
     border: none;
     border-radius: 999px;
     padding: 14px 28px;
