@@ -7,6 +7,7 @@ import {
 } from './utils/store.js';
 import { CATEGORY_SLUGS } from './utils/menu.js';
 import { escapeHtml } from './utils/cart.js';
+import { escapeHtml, formatPrice } from './utils/cart.js';
 import { getAdminCredentials, saveAdminCredentials, isAdminCredentials } from './utils/admin.js';
 
 const loginView = document.getElementById('admin-login');
@@ -23,6 +24,22 @@ function showDashboard() {
     dashboard.classList.remove('hidden');
     initDashboard();
     initAdminCredentialsForm();
+}
+
+if (isLoggedIn()) {
+    showDashboard();
+} else {
+    loginForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const username = loginForm.querySelector('input[name="username"]').value;
+        const password = loginForm.querySelector('input[name="password"]').value;
+        if (isAdminCredentials(username, password)) {
+            sessionStorage.setItem('emeraldAdmin', '1');
+            showDashboard();
+        } else {
+            loginError.textContent = 'Incorrect username or password. Please try again.';
+        }
+    });
 }
 
 document.getElementById('logout-btn').addEventListener('click', () => {
@@ -1188,6 +1205,54 @@ async function openCustomerHistory(customer) {
 if (customerSearch) {
     customerSearch.addEventListener('input', () => renderCustomers(customerSearch.value));
 }
+// ---------------- Admin credentials ----------------
+
+const adminCredentialsForm = document.getElementById('admin-credentials-form');
+
+function initAdminCredentialsForm() {
+    if (!adminCredentialsForm) return;
+    const creds = getAdminCredentials();
+    const usernameInput = adminCredentialsForm.querySelector('[name="adminUsername"]');
+    const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
+    if (usernameInput) usernameInput.value = creds.username || '';
+    if (emailInput) emailInput.value = creds.email || '';
+
+    adminCredentialsForm.addEventListener('submit', event => {
+        event.preventDefault();
+        const message = adminCredentialsForm.querySelector('.form-message');
+        const data = new FormData(adminCredentialsForm);
+        const currentPassword = String(data.get('currentPassword') || '');
+        const newPassword = String(data.get('newPassword') || '').trim();
+        const newUsername = String(data.get('adminUsername') || '').trim();
+        const newEmail = String(data.get('adminEmail') || '').trim();
+
+        message.textContent = '';
+        message.classList.remove('error');
+
+        if (!isAdminCredentials(creds.username, currentPassword)) {
+            message.textContent = 'Current password is incorrect.';
+            message.classList.add('error');
+            return;
+        }
+        if (newPassword.length < 6) {
+            message.textContent = 'New password must be at least 6 characters.';
+            message.classList.add('error');
+            return;
+        }
+        if (!saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail })) {
+            message.textContent = 'Please enter a valid username and password.';
+            message.classList.add('error');
+            return;
+        }
+        adminCredentialsForm.reset();
+        usernameInput.value = newUsername;
+        emailInput.value = newEmail;
+        message.textContent = 'Admin credentials updated. Use them on your next sign-in.';
+        message.classList.remove('error');
+    });
+}
+
+// ---------------- Settings ----------------
 
 const settingsForm = document.getElementById('settings-form');
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
