@@ -12,7 +12,7 @@ window.addEventListener('pageshow', resetScrollPosition);
 
 const header = document.getElementById('header');
 const hamburger = document.querySelector('.hamburger');
-const navLinks = document.querySelector('.nav-links');
+const navLinks = document.querySelector('.site-sidebar');
 const navOverlay = document.querySelector('.nav-overlay');
 const reserveTriggers = document.querySelectorAll('.reserve-trigger');
 const modalOverlay = document.querySelector('.modal-overlay');
@@ -61,15 +61,17 @@ if (navOverlay) {
     navOverlay.addEventListener('click', () => toggleMobileMenu(false));
 }
 
-document.querySelectorAll('.nav-links a').forEach(link => {
+document.querySelectorAll('.site-sidebar a').forEach(link => {
     link.addEventListener('click', () => toggleMobileMenu(false));
 });
 
 window.addEventListener('scroll', () => {
-    if (window.scrollY > 24) {
-        header.classList.add('scrolled');
-    } else {
-        header.classList.remove('scrolled');
+    if (header) {
+        if (window.scrollY > 24) {
+            header.classList.add('scrolled');
+        } else {
+            header.classList.remove('scrolled');
+        }
     }
 
     handleScrollVisibility();
@@ -188,6 +190,7 @@ if (reservationForm) {
 
 galleryItems.forEach(item => {
     item.addEventListener('click', () => {
+        if (!lightbox) return;
         const src = item.dataset.src;
         const image = lightbox.querySelector('img');
         if (!src || !image) return;

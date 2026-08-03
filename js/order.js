@@ -160,7 +160,7 @@ function attachAuthGateEvents() {
         }
 
         const enteredIdentifier = String(data.get('email') || '').trim().toLowerCase();
-        if (isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
+        if (await isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
             sessionStorage.setItem('emeraldAdmin', '1');
             closeAuthGate();
             window.location.href = 'admin.html';
@@ -327,7 +327,9 @@ function filterMenu() {
     const category = categorySelect?.value || 'all';
     const filtered = menuItems.filter(item => {
         const matchesCategory = category === 'all' || item.category === category;
-        const matchesQuery = item.name.toLowerCase().includes(query) || item.description.toLowerCase().includes(query);
+        const name = String(item.name || '').toLowerCase();
+        const description = String(item.description || '').toLowerCase();
+        const matchesQuery = name.includes(query) || description.includes(query);
         return matchesCategory && matchesQuery;
     });
     renderMenu(filtered);
@@ -489,7 +491,7 @@ if (trackButton && trackNumberInput && trackStatus) {
 if (orderGrid) {
     orderGrid.addEventListener('click', event => {
         const button = event.target.closest('.add-to-cart');
-        if (!button) return;
+        if (!button || !button.dataset.id) return;
         addToCart(button.dataset.id);
     });
 }

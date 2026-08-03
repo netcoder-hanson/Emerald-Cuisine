@@ -3,7 +3,12 @@ export const VAT_RATE = 0.075;
 export const FREE_DELIVERY_THRESHOLD = 20000;
 
 export function getCart() {
-    return JSON.parse(localStorage.getItem('emeraldCart') || '{}');
+    try {
+        const cart = JSON.parse(localStorage.getItem('emeraldCart') || '{}');
+        return cart && typeof cart === 'object' && !Array.isArray(cart) ? cart : {};
+    } catch {
+        return {};
+    }
 }
 
 export function saveCart(cart) {
@@ -56,7 +61,7 @@ export function clearCart() {
 }
 
 export function formatPrice(value) {
-    return `₦${value.toLocaleString()}`;
+    return `₦${(Number(value) || 0).toLocaleString()}`;
 }
 
 export function escapeHtml(value) {
@@ -69,9 +74,10 @@ export function escapeHtml(value) {
 }
 
 export function calculateTotals(items, deliveryType = 'delivery') {
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const list = Array.isArray(items) ? items : [];
+    const subtotal = list.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const vat = Math.round(subtotal * VAT_RATE);
-    const deliveryFee = items.length && deliveryType !== 'pickup' && subtotal <= FREE_DELIVERY_THRESHOLD ? DELIVERY_FEE : 0;
+    const deliveryFee = list.length && deliveryType !== 'pickup' && subtotal < FREE_DELIVERY_THRESHOLD ? DELIVERY_FEE : 0;
     const total = subtotal + vat + deliveryFee;
     return { subtotal, vat, deliveryFee, total };
 }

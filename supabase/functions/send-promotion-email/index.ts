@@ -1,7 +1,7 @@
 import { withSupabase } from 'npm:@supabase/server';
 
 const MAILERSEND_API_KEY = Deno.env.get('MAILERSEND_API_KEY') || '';
-const FROM_EMAIL = Deno.env.get('MAILERSEND_FROM_EMAIL') || 'netcoder.hanson@gmail.com';
+const FROM_EMAIL = Deno.env.get('MAILERSEND_FROM_EMAIL') || '';
 const FROM_NAME = Deno.env.get('MAILERSEND_FROM_NAME') || "Emerald's Cuisine";
 // Public origin used to build unsubscribe links (e.g. https://emeraldscuisine.com).
 const SITE_URL = Deno.env.get('SITE_URL') || '';
@@ -104,6 +104,12 @@ export default {
         if (!MAILERSEND_API_KEY) {
             return json({ error: 'MAILERSEND_API_KEY secret is not set on this Edge Function.' }, 500);
         }
+        if (!FROM_EMAIL) {
+            return json({ error: 'MAILERSEND_FROM_EMAIL secret is not set. MailerSend will reject unverified senders.' }, 500);
+        }
+        if (!SITE_URL) {
+            return json({ error: 'SITE_URL secret is not set; unsubscribe links in the emails would be broken.' }, 500);
+        }
 
         let payload;
         try {
@@ -130,11 +136,30 @@ export default {
                 return json({ error: 'Promotion not found.' }, 404);
             }
 
+            // Server-side duplicate-send guard: block re-sending the same
+            // content. The admin must edit the promotion (bumping
+            // updated_at) before it can be emailed again.
+            if (promotion.is_live && promotion.last_sent_at) {
+                const lastSent = new Date(promotion.last_sent_at);
+                const updated = promotion.updated_at ? new Date(promotion.updated_at) : null;
+                if (!updated || updated <= lastSent) {
+                    return json({ error: `This promotion was already emailed on ${lastSent.toISOString()}. Edit its content to email again.` }, 409);
+                }
+            }
+
             // 2. Pull recipients respecting consent.
             const [subResult, custResult] = await Promise.all([
                 supabase.from('subscribers').select('email').eq('status', 'active'),
                 supabase.from('customers').select('email').eq('marketing_opt_in', true)
             ]);
+            if (subResult.error) {
+                console.error('subscribers query failed:', subResult.error);
+                return json({ error: `Could not load subscribers: ${subResult.error.message}` }, 500);
+            }
+            if (custResult.error) {
+                console.error('customers query failed:', custResult.error);
+                return json({ error: `Could not load customers: ${custResult.error.message}` }, 500);
+            }
 
             const emails = new Set();
             (subResult.data || []).forEach((row) => emails.add(String(row.email || '').trim().toLowerCase()));
@@ -142,10 +167,11 @@ export default {
             const recipients = [...emails].filter(isValidEmail);
 
             const nowIso = new Date().toISOString();
-            const discountText = promotion.discount_value !== null && promotion.discount_value !== undefined
+            const discountValue = Number(promotion.discount_value);
+            const discountText = Number.isFinite(discountValue) && discountValue > 0
                 ? (promotion.discount_type === 'fixed'
-                    ? `₦${Number(promotion.discount_value).toLocaleString()}`
-                    : `${Number(promotion.discount_value)}%`)
+                    ? `₦${discountValue.toLocaleString()}`
+                    : `${discountValue}%`)
                 : '';
 
             if (!recipients.length) {
@@ -177,12 +203,15 @@ export default {
             }
 
             // 4. Record the result back on the promotion.
-            await supabase.from('promotions').update({
+            const { error: updateError } = await supabase.from('promotions').update({
                 is_live: true,
                 last_sent_at: nowIso,
                 last_sent_count: sent,
                 last_failed_count: failed
             }).eq('id', promotionId);
+            if (updateError) {
+                console.error('Failed to record send result on promotion:', updateError);
+            }
 
             return json({
                 sent,
@@ -192,7 +221,7 @@ export default {
             });
         } catch (err) {
             console.error('send-promotion-email error:', err);
-            return json({ error: `Internal error: ${err.message}` }, 500);
+            return json({ error: `Internal error: ${err instanceof Error ? err.message : String(err)}` }, 500);
         }
     })
 };

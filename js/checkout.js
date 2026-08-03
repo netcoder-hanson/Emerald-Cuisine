@@ -82,7 +82,7 @@ if (checkoutForm) {
     checkoutForm.addEventListener('submit', async event => {
         event.preventDefault();
         const submitButton = checkoutForm.querySelector('button[type="submit"]');
-        const message = checkoutForm.querySelector('.form-message');
+        const message = checkoutForm.querySelector('.form-message') || document.createElement('p');
         message.textContent = '';
         message.classList.remove('error');
 
@@ -110,6 +110,7 @@ if (checkoutForm) {
         const { subtotal, vat, deliveryFee, total } = calculateTotals(items, deliveryType);
         const orderData = {
             orderNumber: `EBF${Date.now().toString().slice(-6)}`,
+            createdAt: new Date().toISOString(),
             estimatedTime: deliveryType === 'pickup' ? 'Ready in 20-30 mins' : 'Estimated delivery in 40-55 mins',
             fullName,
             phone,
@@ -129,9 +130,20 @@ if (checkoutForm) {
             submitButton.textContent = 'Placing your order...';
         }
 
+        let saved = false;
         try {
-            await saveOrder(orderData);
-        } catch {
+            saved = !!(await saveOrder(orderData));
+        } catch (error) {
+            console.error('Failed to save order:', error);
+        }
+        if (!saved) {
+            message.textContent = 'We could not save your order right now. Please try again or contact support.';
+            message.classList.add('error');
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Place Order';
+            }
+            return;
         }
         await sendOrderEmails(orderData);
         clearCart();

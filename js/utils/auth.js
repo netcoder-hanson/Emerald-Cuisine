@@ -47,17 +47,27 @@ function normalizePassword(password) {
     return String(password || '').trim();
 }
 
-async function hashPassword(value) {
+export async function hashPassword(value) {
+    const normalized = normalizePassword(value);
     const encoder = new TextEncoder();
-    const data = encoder.encode(`${normalizePassword(value)}::emerald-cuisine`);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+    const data = encoder.encode(`${normalized}::emerald-cuisine`);
+    if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+    }
+    // Non-secure context fallback (crypto.subtle unavailable over plain HTTP).
+    let hash = 0;
+    const str = new TextDecoder().decode(data);
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+    }
+    return `legacy-${(hash >>> 0).toString(16)}`;
 }
 
 async function verifyPassword(storedPassword, suppliedPassword) {
     if (!storedPassword) return false;
     if (storedPassword === normalizePassword(suppliedPassword)) return true;
-    if (typeof storedPassword === 'string' && /^[a-f0-9]{64}$/i.test(storedPassword)) {
+    if (typeof storedPassword === 'string' && (/^[a-f0-9]{64}$/i.test(storedPassword) || storedPassword.startsWith('legacy-'))) {
         return storedPassword === await hashPassword(suppliedPassword);
     }
     return false;

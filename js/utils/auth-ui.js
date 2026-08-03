@@ -1,6 +1,6 @@
 import { getCurrentUser, restoreSession, loginOrRegister, logoutUser } from './auth.js';
 import CONFIG from '../config.js';
-import { isAdminCredentials, getAdminCredentials } from './admin.js';
+import { isAdminCredentials, getAdminCredentials, isAdminIdentifier } from './admin.js';
 
 let modalRoot = null;
 let lastFocusedElement = null;
@@ -8,9 +8,9 @@ let lastFocusedElement = null;
 function escapeHtml(value) {
     return String(value)
         .replace(/&/g, '&amp;')
-        .replace(/</g, '<')
-        .replace(/>/g, '>')
-        .replace(/"/g, '"')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
 
@@ -21,9 +21,24 @@ function refreshIcons() {
 }
 
 // Inject a placeholder <div class="auth-slot"> inside each page's
-// .header-actions container (pages include the auth module script).
+// .header-actions container (and the sidebar when present). Pages include
+// the auth module script.
 function getAuthSlot() {
     const actions = document.querySelector('.header-actions');
+    if (!actions) return null;
+    let slot = actions.querySelector('.auth-slot');
+    if (!slot) {
+        slot = document.createElement('div');
+        slot.className = 'auth-slot';
+        actions.appendChild(slot);
+    }
+    return slot;
+}
+
+// Render the auth UI into the sidebar's .site-sidebar-actions container
+// (used on the main site pages that have a persistent left sidebar).
+function getSidebarAuthSlot() {
+    const actions = document.querySelector('.site-sidebar-actions');
     if (!actions) return null;
     let slot = actions.querySelector('.auth-slot');
     if (!slot) {
@@ -135,7 +150,7 @@ async function onSubmit(event) {
     // Admin sign-in: a matching admin username OR email + the admin
     // password opens the dashboard.
     const enteredIdentifier = String(data.get('email') || '').trim().toLowerCase();
-    if (isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
+    if (await isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
         sessionStorage.setItem('emeraldAdmin', '1');
         window.location.href = 'admin.html';
         return;
@@ -211,7 +226,7 @@ function renderAuthSlot() {
             <strong>${escapeHtml(user.name)}</strong>
             <span>${escapeHtml(user.email)}</span>
         </div>
-        ${isAdminCredentials(user.email) || isAdminCredentials(user.name) ? `
+        ${isAdminIdentifier(user.email) || isAdminIdentifier(user.name) ? `
             <a href="admin.html" class="auth-menu-item">
                 <i data-lucide="gauge" aria-hidden="true"></i> Admin dashboard
             </a>
@@ -234,13 +249,6 @@ function renderAuthSlot() {
         chip.setAttribute('aria-expanded', String(isOpen));
     });
 
-    document.addEventListener('click', event => {
-        if (!chipWrap.contains(event.target)) {
-            menu.classList.remove('open');
-            chip.setAttribute('aria-expanded', 'false');
-        }
-    });
-
     chipWrap.appendChild(chip);
     chipWrap.appendChild(menu);
     slot.appendChild(chipWrap);
@@ -251,7 +259,87 @@ function renderAuthSlot() {
 export async function initAuthUI() {
     await restoreSession();
     renderAuthSlot();
+    renderSidebarAuthSlot();
 }
+
+function renderSidebarAuthSlot() {
+    const slot = getSidebarAuthSlot();
+    if (!slot) return;
+
+    const user = getCurrentUser();
+    slot.innerHTML = '';
+
+    if (!user) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-outline btn-sm auth-signin-btn';
+        btn.innerHTML = '<i data-lucide="user" aria-hidden="true"></i> Sign in';
+        btn.setAttribute('aria-haspopup', 'dialog');
+        btn.addEventListener('click', openModal);
+        slot.appendChild(btn);
+        refreshIcons();
+        return;
+    }
+
+    const chipWrap = document.createElement('div');
+    chipWrap.className = 'auth-chip-wrap';
+
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'auth-chip';
+    chip.setAttribute('aria-haspopup', 'true');
+    chip.setAttribute('aria-expanded', 'false');
+    chip.innerHTML = `<span class="auth-avatar" aria-hidden="true">${escapeHtml((user.name || 'U').charAt(0).toUpperCase())}</span><span class="auth-chip-name">${escapeHtml(user.name.split(' ')[0])}</span>`;
+
+    const menu = document.createElement('div');
+    menu.className = 'auth-menu';
+    menu.setAttribute('role', 'menu');
+    menu.innerHTML = `
+        <div class="auth-menu-user">
+            <strong>${escapeHtml(user.name)}</strong>
+            <span>${escapeHtml(user.email)}</span>
+        </div>
+        ${isAdminIdentifier(user.email) || isAdminIdentifier(user.name) ? `
+            <a href="admin.html" class="auth-menu-item">
+                <i data-lucide="gauge" aria-hidden="true"></i> Admin dashboard
+            </a>
+        ` : ''}
+        <button type="button" class="auth-menu-item" data-auth-logout>
+            <i data-lucide="log-out" aria-hidden="true"></i> Sign out
+        </button>
+    `;
+
+    menu.querySelector('[data-auth-logout]').addEventListener('click', async () => {
+        await logoutUser();
+        menu.classList.remove('open');
+        chip.setAttribute('aria-expanded', 'false');
+        renderSidebarAuthSlot();
+    });
+
+    chip.addEventListener('click', event => {
+        event.stopPropagation();
+        const isOpen = menu.classList.toggle('open');
+        chip.setAttribute('aria-expanded', String(isOpen));
+    });
+
+    chipWrap.appendChild(chip);
+    chipWrap.appendChild(menu);
+    slot.appendChild(chipWrap);
+    refreshIcons();
+}
+
+// Single delegated handler: closes any open auth menu when clicking outside
+// it. Registered once instead of on every slot render, so login/logout
+// cycles never accumulate document listeners.
+document.addEventListener('click', event => {
+    document.querySelectorAll('.auth-menu.open').forEach(menu => {
+        const wrap = menu.closest('.auth-chip-wrap');
+        if (!wrap || wrap.contains(event.target)) return;
+        menu.classList.remove('open');
+        const chip = wrap.querySelector('.auth-chip');
+        if (chip) chip.setAttribute('aria-expanded', 'false');
+    });
+});
 
 // Auto-initialise once the DOM is ready. Module scripts are deferred,
 // so .header-actions is already parsed when this runs.

@@ -306,9 +306,13 @@ async function renderItems() {
 
     itemsList.querySelectorAll('[data-edit-item]').forEach(btn => {
         btn.addEventListener('click', async () => {
-            const items = await getAdminItems();
-            const row = items.find(item => String(item.id) === btn.dataset.editItem);
-            if (row) buildItemForm(row);
+            try {
+                const items = await getAdminItems();
+                const row = items.find(item => String(item.id) === btn.dataset.editItem);
+                if (row) buildItemForm(row);
+            } catch (error) {
+                showToast(`Could not load that item: ${error.message}`, 'error');
+            }
         });
     });
     itemsList.querySelectorAll('[data-delete-item]').forEach(btn => {
@@ -473,7 +477,7 @@ async function buildItemForm(row = {}) {
                 description,
                 price,
                 category,
-                category_id: /^[0-9a-f-]{36}$/i.test(categoryValue) ? categoryValue : null,
+                category_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryValue) ? categoryValue : null,
                 image,
                 image_url: imageUrl,
                 available,
@@ -593,7 +597,9 @@ async function renderCategories() {
 }
 
 function buildCategoryForm(row = {}) {
-    editingCategoryId = row.id || null;
+    // Local (demo-mode) categories have id: null, so fall back to the name
+    // so editing an existing category updates it instead of adding a copy.
+    editingCategoryId = row.id || row.name || null;
     openModal(`${row.id ? 'Edit' : 'Add'} category`, `
         <form id="category-form" novalidate>
             <div class="admin-form-grid">
@@ -601,7 +607,7 @@ function buildCategoryForm(row = {}) {
                     <input name="name" value="${escapeHtml(row.name || '')}" maxlength="80" required>
                 </label>
                 <label>Display order (lower = first)
-                    <input type="number" name="display_order" min="0" step="1" value="${row.display_order ?? row.sort_order ?? 0}">
+                    <input type="number" name="display_order" min="0" step="1" value="${escapeHtml(String(row.display_order ?? row.sort_order ?? 0))}">
                 </label>
             </div>
             <div class="admin-form-actions">
@@ -688,10 +694,10 @@ function formatPromoDates(row) {
     return '';
 }
 
-function formatDiscount(row) {
+function formatDiscount(row, currency) {
     if (row.discount_value === null || row.discount_value === undefined) return '';
     const value = Number(row.discount_value);
-    return row.discount_type === 'fixed' ? formatMoney(value, '₦') : `${value}%`;
+    return row.discount_type === 'fixed' ? formatMoney(value, currency) : `${value}%`;
 }
 
 function lastSentNote(row) {
@@ -713,13 +719,14 @@ async function renderPromotions() {
     } catch {
         rows = [];
     }
+    const currency = await getCurrencySymbol();
 
     promotionsList.innerHTML = rows && rows.length
         ? rows.map(row => `
             <div class="admin-row">
                 <div class="admin-row-main">
                     <strong>${escapeHtml(row.title)}</strong>
-                    <span>${escapeHtml(row.description || row.message || '')}${row.discount_value !== null && row.discount_value !== undefined ? ` &middot; <em>${escapeHtml(formatDiscount(row))}</em>` : ''}</span>
+                    <span>${escapeHtml(row.description || row.message || '')}${row.discount_value !== null && row.discount_value !== undefined ? ` &middot; <em>${escapeHtml(formatDiscount(row, currency))}</em>` : ''}</span>
                     ${formatPromoDates(row) ? `<span>${formatPromoDates(row)}</span>` : ''}
                     ${lastSentNote(row)}
                 </div>
@@ -791,6 +798,7 @@ async function goLive(promotionId) {
     if (!explicit) return;
 
     const button = document.querySelector(`[data-golive="${promotionId}"]`);
+    const buttonHtml = button ? button.innerHTML : '';
     if (button) {
         button.disabled = true;
         button.textContent = 'Sending…';
@@ -835,7 +843,8 @@ async function goLive(promotionId) {
     } catch (error) {
         if (button) {
             button.disabled = false;
-            button.textContent = 'Go live';
+            button.innerHTML = buttonHtml || 'Go live';
+            refreshIcons();
         }
         showToast(`Could not send emails: ${error.message}`, 'error');
     }
@@ -856,7 +865,7 @@ function buildPromotionForm(row = {}) {
                     </select>
                 </label>
                 <label>Discount value
-                    <input type="number" name="discount_value" min="0" step="0.01" value="${row.discount_value ?? ''}">
+                    <input type="number" name="discount_value" min="0" step="0.01" value="${escapeHtml(String(row.discount_value ?? ''))}">
                 </label>
                 <label>Start date
                     <input type="date" name="start_date" value="${escapeHtml(row.start_date || '')}">
@@ -934,7 +943,7 @@ function buildPromotionForm(row = {}) {
                 showToast('Promotion updated.');
             } else {
                 if (isSupabaseConfigured()) {
-                    await insertRow('promotions', { ...payload, active: true, is_live: false });
+                    await insertRow('promotions', { ...payload, active: false, is_live: false });
                 } else {
                     const local = readLocal('emeraldAdminPromotions', []);
                     local.unshift({ ...payload, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, is_live: false });
@@ -958,8 +967,11 @@ document.getElementById('add-promotion')?.addEventListener('click', () => buildP
 const subscribersList = document.getElementById('subscribers-list');
 const subscriberSearch = document.getElementById('subscriber-search');
 
+let subscribersRequestSeq = 0;
+
 async function renderSubscribers(filter = '') {
     if (!subscribersList) return;
+    const requestSeq = ++subscribersRequestSeq;
     let rows;
     try {
         rows = await getSubscribers();
@@ -967,6 +979,7 @@ async function renderSubscribers(filter = '') {
         showToast(`Could not load subscribers: ${error.message}`, 'error');
         rows = null;
     }
+    if (requestSeq !== subscribersRequestSeq) return;
     if (!rows || !rows.length) rows = readLocal('emeraldSubscribers', []);
 
     const query = (filter || '').toLowerCase();
@@ -1009,8 +1022,12 @@ async function renderSubscribers(filter = '') {
     });
 }
 
+let subscriberSearchTimer = null;
 if (subscriberSearch) {
-    subscriberSearch.addEventListener('input', () => renderSubscribers(subscriberSearch.value));
+    subscriberSearch.addEventListener('input', () => {
+        clearTimeout(subscriberSearchTimer);
+        subscriberSearchTimer = setTimeout(() => renderSubscribers(subscriberSearch.value), 250);
+    });
 }
 
 document.getElementById('export-subscribers')?.addEventListener('click', () => {
@@ -1061,14 +1078,18 @@ async function getOrdersByEmail(email) {
     );
 }
 
+let customersRequestSeq = 0;
+
 async function renderCustomers(filter = '') {
     if (!customersList) return;
+    const requestSeq = ++customersRequestSeq;
     let customers;
     try {
         customers = await getAdminCustomers();
     } catch {
         customers = [];
     }
+    if (requestSeq !== customersRequestSeq) return;
 
     let ordersByEmail = {};
     try {
@@ -1185,8 +1206,12 @@ async function openCustomerHistory(customer) {
     `);
 }
 
+let customerSearchTimer = null;
 if (customerSearch) {
-    customerSearch.addEventListener('input', () => renderCustomers(customerSearch.value));
+    customerSearch.addEventListener('input', () => {
+        clearTimeout(customerSearchTimer);
+        customerSearchTimer = setTimeout(() => renderCustomers(customerSearch.value), 250);
+    });
 }
 
 const settingsForm = document.getElementById('settings-form');
@@ -1268,12 +1293,12 @@ async function renderSettings() {
     }
 
     const numberFields = ['tax_rate', 'min_order', 'lead_time', 'delivery_fee'];
+    const numberDefaultKeys = { tax_rate: 'taxRate', min_order: 'minOrder', lead_time: 'leadTime', delivery_fee: 'deliveryFee' };
     for (const key of numberFields) {
         const input = settingsForm.querySelector(`[name="${key}"]`);
         if (!input) continue;
-        const fallback = CONFIG.defaults[key.replace('_rate', 'Rate')] ?? '';
         const value = await loadSetting(key, '');
-        input.value = value !== '' ? value : '';
+        input.value = value !== '' ? value : (CONFIG.defaults[numberDefaultKeys[key]] ?? '');
     }
 
     const checkboxFields = ['delivery_enabled', 'pickup_enabled', 'maintenance_mode'];
@@ -1299,7 +1324,7 @@ async function renderSettings() {
     const logoUrl = await loadSetting('logo_url', '');
     const logoZone = document.getElementById('settings-logo-zone');
     if (logoZone && logoUrl) {
-        const preview = logoZone.querySelector('[data-upload-preview]');
+        const preview = logoZone.querySelector('#settings-logo-preview');
         if (preview) {
             preview.src = logoUrl;
             preview.classList.remove('hidden');
@@ -1483,13 +1508,13 @@ const adminCredentialsForm = document.getElementById('admin-credentials-form');
 
 function initAdminCredentialsForm() {
     if (!adminCredentialsForm) return;
-    const creds = getAdminCredentials();
+    const creds = getAdminCredentials() || { username: CONFIG.adminUsername || 'admin', email: CONFIG.adminEmail || '' };
     const usernameInput = adminCredentialsForm.querySelector('[name="adminUsername"]');
     const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
     if (usernameInput) usernameInput.value = creds.username || '';
     if (emailInput) emailInput.value = creds.email || '';
 
-    adminCredentialsForm.addEventListener('submit', event => {
+    adminCredentialsForm.addEventListener('submit', async event => {
         event.preventDefault();
         const message = adminCredentialsForm.querySelector('.form-message');
         const data = new FormData(adminCredentialsForm);
@@ -1501,7 +1526,7 @@ function initAdminCredentialsForm() {
         message.textContent = '';
         message.classList.remove('error');
 
-        if (!isAdminCredentials(creds.username, currentPassword)) {
+        if (!(await isAdminCredentials(creds.username, currentPassword))) {
             message.textContent = 'Current password is incorrect.';
             message.classList.add('error');
             return;
@@ -1511,7 +1536,7 @@ function initAdminCredentialsForm() {
             message.classList.add('error');
             return;
         }
-        if (!saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail })) {
+        if (!(await saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail }))) {
             message.textContent = 'Please enter a valid username and password.';
             message.classList.add('error');
             return;
@@ -1544,11 +1569,11 @@ refreshIcons();
 if (isLoggedIn()) {
     showDashboard();
 } else {
-    loginForm.addEventListener('submit', event => {
+    loginForm.addEventListener('submit', async event => {
         event.preventDefault();
         const username = loginForm.querySelector('input[name="username"]').value;
         const password = loginForm.querySelector('input[name="password"]').value;
-        if (isAdminCredentials(username, password)) {
+        if (await isAdminCredentials(username, password)) {
             sessionStorage.setItem('emeraldAdmin', '1');
             showDashboard();
         } else {
