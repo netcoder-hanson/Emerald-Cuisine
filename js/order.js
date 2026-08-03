@@ -188,9 +188,6 @@ function attachAuthGateEvents() {
 
 function isMobileCartModal() {
     return window.matchMedia('(max-width: 1024px)').matches;
-function isMobileCartModal() {
-    return window.matchMedia('(max-width: 1024px)').matches;
-    return window.matchMedia('(max-width: 1100px)').matches;
 }
 
 function openCartModal() {

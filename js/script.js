@@ -254,10 +254,6 @@ document.addEventListener('keydown', event => {
     }
 });
 
-// Newsletter subscription is handled in js/home.js so it can save
-// subscribers via the store (Supabase + localStorage fallback).
-
-// Render Lucide icons if the library is loaded
 if (window.lucide) {
     lucide.createIcons();
 }

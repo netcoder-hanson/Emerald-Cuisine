@@ -35,8 +35,6 @@ function buildTemplateParams(order) {
     };
 }
 
-// Sends an email to the restaurant and a receipt to the customer
-// using the same template, toggled with the is_restaurant / is_customer flags.
 export async function sendOrderEmails(order) {
     if (!isEmailConfigured()) return false;
     ensureInit();
@@ -56,23 +54,4 @@ export async function sendOrderEmails(order) {
     } catch {
         return false;
     }
-}
-
-// Sends a promotional email to every newsletter subscriber.
-export async function sendPromoEmails(subscribers, promotion) {
-    if (!isEmailConfigured()) return false;
-    ensureInit();
-    const requests = (subscribers || []).map(subscriber =>
-        window.emailjs.send(CONFIG.emailjs.serviceId, CONFIG.emailjs.templateId, {
-            to_email: subscriber.email,
-            is_promo: true,
-            customer_email: subscriber.email,
-            title: promotion.title,
-            message: promotion.message,
-            discount: promotion.discount || ''
-        })
-    );
-    if (!requests.length) return false;
-    const results = await Promise.allSettled(requests);
-    return results.filter(result => result.status === 'fulfilled').length;
 }

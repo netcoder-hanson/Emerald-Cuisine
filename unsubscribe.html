@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Unsubscribe from Emerald's Cuisine promotional emails.">
+    <title>Unsubscribe | Emerald's Cuisine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header class="admin-bar">
+        <a href="index.html" class="admin-logo">Emerald's <span>Cuisine</span></a>
+        <nav class="admin-bar-nav">
+            <a href="index.html">Back to site</a>
+        </nav>
+    </header>
+
+    <main class="admin-view">
+        <div class="admin-container">
+            <section class="admin-card" aria-labelledby="unsubscribe-title">
+                <span class="eyebrow">Newsletter preferences</span>
+                <h1 id="unsubscribe-title">Unsubscribe</h1>
+                <p>We're sorry to see you go. Confirm below to stop receiving promotional emails from Emerald's Cuisine.</p>
+
+                <form id="unsubscribe-form" novalidate>
+                    <label>
+                        Email address
+                        <input type="email" name="email" id="unsubscribe-email" placeholder="you@example.com" required autocomplete="email">
+                    </label>
+                    <p class="form-message" id="unsubscribe-message" aria-live="polite"></p>
+                    <button type="submit" class="btn btn-primary btn-full">Unsubscribe me</button>
+                    <p class="admin-hint">You'll still receive order confirmations and delivery updates.</p>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/unsubscribe.js"></script>
+</body>
+</html>
+

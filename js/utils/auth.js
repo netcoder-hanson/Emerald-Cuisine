@@ -1,9 +1,6 @@
 import { getSupabaseClient } from './supabase.js';
 
 const USERS_KEY = 'emeraldUsers';
-// Session lives in localStorage when "keep me signed in" is checked
-// (survives browser restart) and in sessionStorage when unchecked
-// (cleared when the browser tab/session closes).
 const PERSISTENT_AUTH_KEY = 'emeraldAuthUser';
 const SESSION_AUTH_KEY = 'emeraldAuthUserSession';
 

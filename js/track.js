@@ -37,7 +37,6 @@ async function geocode(address) {
             return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
         }
     } catch {
-        // fall through
     }
     return null;
 }
@@ -46,13 +45,17 @@ let map = null;
 let riderMarker = null;
 let clientLatLng = null;
 
-function createIcon(iconClass, size = 34) {
+function createIcon(iconName, size = 34) {
     return L.divIcon({
         className: 'track-marker',
-        html: `<span class="track-marker-pin ${iconClass}"></span>`,
+        html: `<span class="track-marker-pin pin-${iconName}"><i data-lucide="${iconName}" aria-hidden="true"></i></span>`,
         iconSize: [size, size],
         iconAnchor: [size / 2, size]
     });
+}
+
+function refreshIcons() {
+    if (window.lucide) window.lucide.createIcons();
 }
 
 function initMap(restaurant, client) {
@@ -61,10 +64,10 @@ function initMap(restaurant, client) {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    L.marker([restaurant.lat, restaurant.lng], { icon: createIcon('fa-solid fa-store', 36) })
+    L.marker([restaurant.lat, restaurant.lng], { icon: createIcon('store', 36) })
         .addTo(map).bindPopup('Emerald\'s Cuisine');
 
-    L.marker([client.lat, client.lng], { icon: createIcon('fa-solid fa-location-dot', 38) })
+    L.marker([client.lat, client.lng], { icon: createIcon('map-pin', 38) })
         .addTo(map).bindPopup('Your delivery location');
 
     L.polyline([[restaurant.lat, restaurant.lng], [client.lat, client.lng]], {
@@ -74,8 +77,10 @@ function initMap(restaurant, client) {
         opacity: 0.7
     }).addTo(map);
 
-    riderMarker = L.marker([restaurant.lat, restaurant.lng], { icon: createIcon('fa-solid fa-motorcycle', 38) })
+    riderMarker = L.marker([restaurant.lat, restaurant.lng], { icon: createIcon('bike', 38) })
         .addTo(map).bindPopup('Dispatch rider');
+
+    refreshIcons();
 
     clientLatLng = L.latLng(client.lat, client.lng);
     map.fitBounds([[restaurant.lat, restaurant.lng], [client.lat, client.lng]], { padding: [40, 40] });

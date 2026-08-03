@@ -8,17 +8,43 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-aX+Eq0KEW5rJ+l+2r5SN0Iio51i8HnSsq8AIDf2mXjBS8I1TYMRt0BfUpaL0c9JwV6uBfAfk57hcmJ4Z8+7ADg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <header class="admin-bar">
-        <a href="index.html" class="admin-logo">Emerald's <span>Cuisine</span></a>
-        <nav class="admin-bar-nav">
-            <a href="index.html">View site</a>
-            <button type="button" id="logout-btn" class="admin-logout">Log out</button>
-        </nav>
-    </header>
+    <div class="admin-shell">
+        <aside class="admin-sidebar" aria-label="Admin navigation">
+            <a href="index.html" class="admin-sidebar-logo">Emerald's <span>Cuisine</span></a>
+
+            <nav class="admin-sidebar-nav" role="tablist" aria-label="Admin sections">
+                <button type="button" class="admin-tab admin-sidebar-item active" data-tab="items" role="tab">
+                    <i data-lucide="box" aria-hidden="true"></i><span class="admin-tab-label">Menu items</span>
+                </button>
+                <button type="button" class="admin-tab admin-sidebar-item" data-tab="categories" role="tab">
+                    <i data-lucide="layout-grid" aria-hidden="true"></i><span class="admin-tab-label">Categories</span>
+                </button>
+                <button type="button" class="admin-tab admin-sidebar-item" data-tab="promotions" role="tab">
+                    <i data-lucide="percent" aria-hidden="true"></i><span class="admin-tab-label">Promotions</span>
+                </button>
+                <button type="button" class="admin-tab admin-sidebar-item" data-tab="subscribers" role="tab">
+                    <i data-lucide="mail" aria-hidden="true"></i><span class="admin-tab-label">Subscribers</span>
+                </button>
+                <button type="button" class="admin-tab admin-sidebar-item" data-tab="customers" role="tab">
+                    <i data-lucide="users" aria-hidden="true"></i><span class="admin-tab-label">Customers</span>
+                </button>
+                <button type="button" class="admin-tab admin-sidebar-item" data-tab="settings" role="tab">
+                    <i data-lucide="settings" aria-hidden="true"></i><span class="admin-tab-label">Settings</span>
+                </button>
+            </nav>
+
+            <div class="admin-sidebar-footer">
+                <a href="index.html" class="admin-sidebar-item">
+                    <i data-lucide="external-link" aria-hidden="true"></i><span class="admin-tab-label">View site</span>
+                </a>
+                <button type="button" id="logout-btn" class="admin-sidebar-item admin-logout">
+                    <i data-lucide="log-out" aria-hidden="true"></i><span class="admin-tab-label">Log out</span>
+                </button>
+            </div>
+        </aside>
 
     <main id="admin-login" class="admin-view">
         <form id="login-form" class="admin-card" novalidate>
@@ -42,99 +68,179 @@
     <main id="admin-dashboard" class="admin-view hidden">
         <div class="admin-container">
             <p id="admin-config-warning" class="admin-warning hidden">
-                <i class="fa-solid fa-triangle-exclamation"></i>
+                <i data-lucide="triangle-alert" aria-hidden="true"></i>
                 Supabase is not configured. Admin changes will not persist until you add your keys in <strong>js/config.js</strong>.
             </p>
 
-            <div class="admin-tabs" role="tablist">
-                <button type="button" class="admin-tab active" data-tab="items" role="tab">Menu items</button>
-                <button type="button" class="admin-tab" data-tab="categories" role="tab">Categories</button>
-                <button type="button" class="admin-tab" data-tab="promotions" role="tab">Promotions</button>
-                <button type="button" class="admin-tab" data-tab="subscribers" role="tab">Subscribers</button>
-                <button type="button" class="admin-tab" data-tab="customers" role="tab">Customers</button>
-                <button type="button" class="admin-tab" data-tab="settings" role="tab">Settings</button>
-            </div>
-
-            <section id="tab-items" class="admin-tab-panel active" role="tabpanel">
+            <section id="tab-items" class="admin-tab-panel active" role="tabpanel" aria-labelledby="items-tab-title">
                 <div class="admin-panel-head">
                     <div>
-                        <h2>Menu items</h2>
+                        <h2 id="items-tab-title">Menu items</h2>
                         <p>Add, edit and update the dishes shown on the order page.</p>
                     </div>
                     <button type="button" id="add-item" class="btn btn-primary btn-sm">Add item</button>
                 </div>
                 <div id="items-list" class="admin-table-wrap" aria-live="polite"></div>
-                <form id="item-form" class="admin-form hidden" novalidate></form>
             </section>
 
-            <section id="tab-categories" class="admin-tab-panel" role="tabpanel">
+            <section id="tab-categories" class="admin-tab-panel" role="tabpanel" aria-labelledby="categories-tab-title">
                 <div class="admin-panel-head">
                     <div>
-                        <h2>Categories</h2>
+                        <h2 id="categories-tab-title">Categories</h2>
                         <p>Manage the category grid on the homepage.</p>
                     </div>
                     <button type="button" id="add-category" class="btn btn-primary btn-sm">Add category</button>
                 </div>
                 <div id="categories-list" class="admin-table-wrap" aria-live="polite"></div>
-                <form id="category-form" class="admin-form hidden" novalidate></form>
             </section>
 
-            <section id="tab-promotions" class="admin-tab-panel" role="tabpanel">
+            <section id="tab-promotions" class="admin-tab-panel" role="tabpanel" aria-labelledby="promotions-tab-title">
                 <div class="admin-panel-head">
                     <div>
-                        <h2>Promotions &amp; announcements</h2>
+                        <h2 id="promotions-tab-title">Promotions &amp; announcements</h2>
                         <p>Post offers and send them to newsletter subscribers by email.</p>
                     </div>
                     <button type="button" id="add-promotion" class="btn btn-primary btn-sm">Add promotion</button>
                 </div>
                 <div id="promotions-list" class="admin-table-wrap" aria-live="polite"></div>
-                <form id="promotion-form" class="admin-form hidden" novalidate></form>
             </section>
 
-            <section id="tab-subscribers" class="admin-tab-panel" role="tabpanel">
+            <section id="tab-subscribers" class="admin-tab-panel" role="tabpanel" aria-labelledby="subscribers-tab-title">
                 <div class="admin-panel-head">
                     <div>
-                        <h2>Newsletter subscribers</h2>
+                        <h2 id="subscribers-tab-title">Newsletter subscribers</h2>
                         <p>People who signed up for email updates.</p>
+                    </div>
+                    <div class="admin-panel-tools">
+                        <label class="admin-search">
+                            <span class="screen-reader-text">Search subscribers by email</span>
+                            <input type="search" id="subscriber-search" placeholder="Search by email&hellip;" aria-label="Search subscribers by email">
+                        </label>
+                        <button type="button" id="export-subscribers" class="btn btn-secondary btn-sm">
+                            <i data-lucide="download" aria-hidden="true"></i> Export CSV
+                        </button>
                     </div>
                 </div>
                 <div id="subscribers-list" class="admin-table-wrap" aria-live="polite"></div>
             </section>
 
-            <section id="tab-customers" class="admin-tab-panel" role="tabpanel">
+            <section id="tab-customers" class="admin-tab-panel" role="tabpanel" aria-labelledby="customers-tab-title">
                 <div class="admin-panel-head">
                     <div>
-                        <h2>Registered customers</h2>
+                        <h2 id="customers-tab-title">Registered customers</h2>
                         <p>Accounts created through the site's sign-in / create account flow.</p>
+                    </div>
+                    <div class="admin-panel-tools">
+                        <label class="admin-search">
+                            <span class="screen-reader-text">Search customers by name or email</span>
+                            <input type="search" id="customer-search" placeholder="Search by name or email&hellip;" aria-label="Search customers by name or email">
+                        </label>
                     </div>
                 </div>
                 <div id="customers-list" class="admin-table-wrap" aria-live="polite"></div>
             </section>
 
-            <section id="tab-settings" class="admin-tab-panel" role="tabpanel">
+            <section id="tab-settings" class="admin-tab-panel" role="tabpanel" aria-labelledby="settings-tab-title">
                 <div class="admin-panel-head">
                     <div>
-                        <h2>Site settings</h2>
-                        <p>Customise homepage text and the promotion banner.</p>
+                        <h2 id="settings-tab-title">Site settings</h2>
+                        <p>Customise your business info, ordering rules and site behaviour.</p>
                     </div>
                 </div>
+
                 <form id="settings-form" class="admin-form visible" novalidate>
-                    <label>
-                        Hero title
-                        <input type="text" name="hero_title" placeholder="Fresh flavours delivered...">
-                    </label>
-                    <label>
-                        Hero subtitle
-                        <textarea name="hero_subtitle" rows="2" placeholder="Premium menu options..."></textarea>
-                    </label>
-                    <label>
-                        Promotion banner text
-                        <input type="text" name="promo_banner" placeholder="e.g. 10% off your first order">
-                    </label>
-                    <label>
-                        Announcement
-                        <textarea name="announcement" rows="2" placeholder="News or announcements for visitors"></textarea>
-                    </label>
+                    <h3>Business info</h3>
+                    <div class="admin-form-grid">
+                        <label>
+                            Restaurant name
+                            <input type="text" name="business_name" placeholder="Emerald's Cuisine">
+                        </label>
+                        <label>
+                            Tagline
+                            <input type="text" name="tagline" placeholder="Luxury grill and fine dining">
+                        </label>
+                        <label>
+                            Contact email
+                            <input type="email" name="contact_email" placeholder="hello@emeraldscuisine.com">
+                        </label>
+                        <label>
+                            Contact phone
+                            <input type="tel" name="contact_phone" placeholder="+234 800 000 0000">
+                        </label>
+                        <label class="full-width">
+                            Physical address
+                            <input type="text" name="address" placeholder="12 Adeola Odeku Street, Victoria Island, Lagos">
+                        </label>
+                        <div class="full-width admin-logo-field">
+                            <span class="admin-field-label">Logo</span>
+                            <div class="admin-upload-zone" id="settings-logo-zone" tabindex="0" role="button" aria-label="Upload logo image">
+                                <input type="file" id="settings-logo-input" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" aria-hidden="true" tabindex="-1">
+                                <i data-lucide="cloud-upload" aria-hidden="true"></i>
+                                <span>Drag &amp; drop a logo, or <strong>browse</strong> (JPG/PNG/WebP, max 5MB)</span>
+                                <img id="settings-logo-preview" class="admin-upload-preview hidden" alt="Logo preview">
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="admin-section-title">Business hours</h3>
+                    <div id="hours-grid" class="admin-hours-grid"></div>
+
+                    <h3 class="admin-section-title">Ordering</h3>
+                    <div class="admin-form-grid">
+                        <label>
+                            Currency symbol
+                            <input type="text" name="currency" placeholder="&#8358;" maxlength="8">
+                        </label>
+                        <label>
+                            Tax rate (%)
+                            <input type="number" name="tax_rate" min="0" max="50" step="0.1" placeholder="7.5">
+                        </label>
+                        <label>
+                            Minimum order amount
+                            <input type="number" name="min_order" min="0" step="0.01" placeholder="0">
+                        </label>
+                        <label>
+                            Order lead time (minutes)
+                            <input type="number" name="lead_time" min="0" step="5" placeholder="30">
+                        </label>
+                        <label class="admin-toggle-row full-width">
+                            <span>Delivery enabled</span>
+                            <input type="checkbox" name="delivery_enabled" checked>
+                        </label>
+                        <label class="admin-toggle-row full-width">
+                            <span>Pickup enabled</span>
+                            <input type="checkbox" name="pickup_enabled" checked>
+                        </label>
+                        <label>
+                            Delivery fee
+                            <input type="number" name="delivery_fee" min="0" step="0.01" placeholder="1500">
+                        </label>
+                    </div>
+
+                    <h3 class="admin-section-title">Site behaviour</h3>
+                    <div class="admin-form-grid">
+                        <label class="admin-toggle-row full-width">
+                            <span>Maintenance mode (shows "back soon" page to visitors)</span>
+                            <input type="checkbox" name="maintenance_mode">
+                        </label>
+                        <label>
+                            Instagram URL
+                            <input type="url" name="social_instagram" placeholder="https://instagram.com/emeraldscuisine">
+                        </label>
+                        <label>
+                            Facebook URL
+                            <input type="url" name="social_facebook" placeholder="https://facebook.com/emeraldscuisine">
+                        </label>
+                        <label>
+                            Site title (SEO)
+                            <input type="text" name="site_title" placeholder="Emerald's Cuisine — Luxury Grill &amp; Fine Dining in Lagos">
+                        </label>
+                        <label class="full-width">
+                            Meta description (SEO)
+                            <textarea name="site_description" rows="2" placeholder="Short description shown in search results"></textarea>
+                        </label>
+                    </div>
+
                     <button type="submit" class="btn btn-primary">Save settings</button>
                     <p class="form-message" aria-live="polite"></p>
                 </form>
@@ -163,12 +269,40 @@
                     <button type="submit" class="btn btn-primary">Update credentials</button>
                     <p class="form-message" aria-live="polite"></p>
                 </form>
+
+                <section class="admin-form visible" aria-labelledby="data-export-title">
+                    <h3 id="data-export-title">Data</h3>
+                    <p class="admin-form-hint">Download a backup of your menu, customers and subscribers. Combine this with Supabase's built-in backups for disaster recovery.</p>
+                    <div class="admin-form-actions">
+                        <button type="button" id="export-all-data" class="btn btn-primary btn-sm">
+                            <i data-lucide="file-output" aria-hidden="true"></i> Export all data (JSON)
+                        </button>
+                        <button type="button" id="export-subscribers-data" class="btn btn-secondary btn-sm">
+                            <i data-lucide="download" aria-hidden="true"></i> Subscribers CSV
+                        </button>
+                    </div>
+                    <p class="form-message" id="data-export-message" aria-live="polite"></p>
+                </section>
             </section>
         </div>
     </main>
+    </div>
 
+    <div id="admin-modal" class="admin-modal" aria-hidden="true">
+        <div class="admin-modal-card" role="dialog" aria-modal="true" aria-labelledby="admin-modal-title">
+            <button type="button" class="admin-modal-close" aria-label="Close dialog" data-close-modal>
+                <i data-lucide="x" aria-hidden="true"></i>
+            </button>
+            <h3 id="admin-modal-title"></h3>
+            <div id="admin-modal-body"></div>
+        </div>
+    </div>
+
+    <div id="admin-toast" class="admin-toast" role="status" aria-live="polite"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    <script type="module" src="js/admin.js"></script>
+    <script type="module" src="js/admin.js?v=2"></script>
 </body>
 </html>

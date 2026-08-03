@@ -52,6 +52,7 @@ No bundler, no package manager, no framework.
 | `confirmation.html` | Order confirmation with order number and ETA |
 | `track.html` | Order status timeline and delivery map |
 | `admin.html` | Owner dashboard (login-protected) |
+| `unsubscribe.html` | Newsletter unsubscribe page |
 
 ---
 
@@ -96,7 +97,50 @@ Then visit `http://localhost:8000`.
 
 The template variables are documented in `js/config.js` (restaurant copy, customer receipt, and promo blast all use the same template, toggled with `is_restaurant`, `is_customer` and `is_promo`).
 
-### 3. Admin login
+### 3. Storage bucket (image uploads)
+
+The admin panel uploads menu item + logo images to Supabase Storage.
+
+1. In the Supabase dashboard open **Storage → New bucket**.
+2. Name it `menu-images` and make it a **Public** bucket.
+3. Add public (demo) policies, e.g.:
+   ```sql
+   create policy "public read images"
+     on storage.objects for select using (bucket_id = 'menu-images');
+   create policy "public upload images"
+     on storage.objects for insert with check (bucket_id = 'menu-images');
+   ```
+
+### 4. Edge Function — promotion email blasts (MailerSend)
+
+Promotional emails are sent **server-side** via a Supabase Edge Function, so the
+MailerSend API key is never exposed in the browser.
+
+1. Make sure the Supabase CLI is installed and you're logged in:
+   ```bash
+   supabase login
+   supabase link --project-ref <your-project-ref>
+   ```
+2. Deploy the included function:
+   ```bash
+   supabase functions deploy send-promotion-email
+   ```
+3. Set the MailerSend secret (and optional overrides):
+   ```bash
+   supabase secrets set MAILERSEND_API_KEY=mlsn.xxxxxxxx
+   supabase secrets set MAILERSEND_FROM_EMAIL=offers@emeraldscuisine.com
+   supabase secrets set MAILERSEND_FROM_NAME="Emerald's Cuisine"
+   supabase secrets set SITE_URL=https://emeraldscuisine.com
+   ```
+   (Optional: `MAILERSEND_TEMPLATE_ID` — not required; the function builds its own HTML.)
+4. The function pulls `subscribers` with `status = 'active'` plus `customers` with
+   `marketing_opt_in = true`, respects unsubscribe consent, includes an unsubscribe
+   link in every email, and writes `last_sent_at` / sent / failed counts back to the
+   promotion row.
+5. If the function is not deployed/reachable, the admin UI falls back to EmailJS in
+   demo mode (requires the EmailJS keys above).
+
+### 5. Admin login
 
 The admin dashboard password is `admin123` by default — change it in `js/config.js` (`CONFIG.adminPassword`).
 
@@ -128,6 +172,7 @@ While keys are empty, the site stays in demo mode.
 ├── confirmation.html      Order confirmation
 ├── track.html             Order tracking
 ├── admin.html             Admin dashboard
+├── unsubscribe.html       Newsletter unsubscribe page
 ├── css/
 │   └── style.css          Single global stylesheet
 ├── data/
@@ -143,6 +188,7 @@ While keys are empty, the site stays in demo mode.
 │   ├── confirmation.js    Confirmation logic
 │   ├── track.js           Order tracking logic
 │   ├── admin.js           Admin dashboard logic
+│   ├── unsubscribe.js     Unsubscribe form logic
 │   └── utils/
 │       ├── auth.js        Sign in / register, session persistence, "keep me signed in"
 │       ├── auth-ui.js     Global sign-in widget + modal injected into every page header
@@ -151,6 +197,11 @@ While keys are empty, the site stays in demo mode.
 │       ├── menu.js        Menu + categories (Supabase then menu.json fallback)
 │       ├── store.js       Generic Supabase CRUD + LocalStorage fallbacks
 │       └── supabase.js    Supabase client creation
+└── supabase/
+    └── functions/
+        ├── deno.json
+        └── send-promotion-email/
+            └── index.ts    Edge Function (promo emails via MailerSend)
 ```
 
 ---
