@@ -1,9 +1,5 @@
 import CONFIG from '../config.js';
 
-// Admin credentials can be overridden at runtime (saved from the admin
-// dashboard -> Settings -> Admin credentials). When no override exists
-// we fall back to the defaults in js/config.js (username: admin,
-// password: admin123).
 const CREDENTIALS_KEY = 'emeraldAdminCredentials';
 
 export function getAdminCredentials() {

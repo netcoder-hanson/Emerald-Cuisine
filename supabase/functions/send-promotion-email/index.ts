@@ -1,20 +1,3 @@
-// ============================================================
-// send-promotion-email — Supabase Edge Function
-// ------------------------------------------------------------
-// Emails every active newsletter subscriber + every customer
-// who has opted in to marketing about a promotion, then records
-// the send result back on the promotions row.
-//
-// MailerSend API key lives ONLY as a Supabase secret:
-//     supabase secrets set MAILERSEND_API_KEY=mlsn.xxxx
-// Optionally set the from address / name:
-//     supabase secrets set MAILERSEND_FROM_EMAIL=netcoder.hanson@gmail.com
-//     supabase secrets set MAILERSEND_FROM_NAME="Emerald's Cuisine"
-//
-// Deploy with:
-//     supabase functions deploy send-promotion-email
-// ============================================================
-
 import { withSupabase } from 'npm:@supabase/server';
 
 const MAILERSEND_API_KEY = Deno.env.get('MAILERSEND_API_KEY') || '';

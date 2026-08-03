@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" integrity="sha512-aX+Eq0KEW5rJ+l+2r5SN0Iio51i8HnSsq8AIDf2mXjBS8I1TYMRt0BfUpaL0c9JwV6uBfAfk57hcmJ4Z8+7ADg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -46,7 +45,7 @@
     <main id="main-content">
         <section class="confirmation-section reveal">
             <div class="container confirmation-card success-card">
-                <div class="success-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="success-icon"><i data-lucide="circle-check" aria-hidden="true"></i></div>
                 <span class="eyebrow">Order confirmed</span>
                 <h1>Thank you, <span id="confirm-name"></span>!</h1>
                 <p class="lead">Your order has been received and is being prepared with care.</p>
@@ -104,8 +103,9 @@
         </div>
     </footer>
 
-    <button id="backToTop" aria-label="Scroll to top"><i class="fa-solid fa-arrow-up"></i></button>
+    <button id="backToTop" aria-label="Scroll to top"><i data-lucide="arrow-up" aria-hidden="true"></i></button>
 
+    <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="js/script.js"></script>
     <script type="module" src="js/confirmation.js"></script>

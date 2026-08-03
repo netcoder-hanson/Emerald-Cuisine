@@ -14,8 +14,6 @@ const dashboard = document.getElementById('admin-dashboard');
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
 
-// ---------------- Auth ----------------
-
 function isLoggedIn() {
     return sessionStorage.getItem('emeraldAdmin') === '1';
 }
@@ -32,8 +30,6 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     window.location.reload();
 });
 
-// ---------------- Tabs ----------------
-
 document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
@@ -43,8 +39,6 @@ document.querySelectorAll('.admin-tab').forEach(tab => {
         if (panel) panel.classList.add('active');
     });
 });
-
-// ---------------- Shared UI: modal + toast ----------------
 
 const adminModal = document.getElementById('admin-modal');
 const adminModalTitle = document.getElementById('admin-modal-title');
@@ -57,7 +51,6 @@ function openModal(title, bodyHtml) {
     if (!adminModal) return;
     adminModalTitle.textContent = title;
     adminModalBody.innerHTML = bodyHtml;
-    // Render any Lucide icons inside the dynamically injected modal content.
     if (window.lucide) window.lucide.createIcons();
     adminModal.classList.add('open');
     adminModal.setAttribute('aria-hidden', 'false');
@@ -129,8 +122,6 @@ function showToast(message, type = 'success') {
     }, 4200);
 }
 
-// ---------------- Form validation helpers ----------------
-
 function setFieldError(form, name, message) {
     const input = form.querySelector(`[name="${name}"]`);
     if (!input) return;
@@ -148,8 +139,6 @@ function clearFieldErrors(form) {
     form.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
     form.querySelectorAll('.admin-field-error').forEach(el => el.remove());
 }
-
-// ---------------- Image upload (drag + drop + browse) ----------------
 
 function initUploadZone(zone, { maxSizeMB = 5, onImage } = {}) {
     const input = zone.querySelector('[data-upload-input]');
@@ -210,7 +199,6 @@ function initUploadZone(zone, { maxSizeMB = 5, onImage } = {}) {
         if (event.dataTransfer && event.dataTransfer.files) handleFile(event.dataTransfer.files[0]);
     });
 
-    // Pre-fill an existing image preview.
     return {
         state,
         setPreview(url) {
@@ -223,8 +211,6 @@ function initUploadZone(zone, { maxSizeMB = 5, onImage } = {}) {
     };
 }
 
-// ---------------- Shared helpers ----------------
-
 // Matches a menu item to a category row. Checks the foreign key first,
 // then falls back to a case-insensitive name comparison so items created
 // with a plain category slug ("breakfast") still match "Breakfast".
@@ -236,16 +222,12 @@ function categoryMatches(item, cat) {
     return itemName === catName;
 }
 
-// ---------------- Lucide icon refresh ----------------
-
 // Re-renders any <i data-lucide="..."> elements added to the DOM after the
 // initial page load (list rows, modal forms, etc.). Safe no-op when Lucide
 // is not loaded (e.g. offline).
 function refreshIcons() {
     if (window.lucide) window.lucide.createIcons();
 }
-
-// ---------------- Demo-mode local storage helpers ----------------
 
 function readLocal(key, fallback) {
     try {
@@ -278,44 +260,19 @@ function formatMoney(value, symbol) {
     return `${symbol}${number.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// ---------------- Menu items ----------------
-
 const itemsList = document.getElementById('items-list');
 let editingItemId = null;
 
 async function getAdminItems() {
-    console.groupCollapsed('[admin] getAdminItems');
-    console.log('Supabase configured:', isSupabaseConfigured());
-    try {
-        const rows = await fetchRows('menu_items', { order: 'name' });
-        console.log('menu_items fetch result:', rows);
-        if (rows && rows.length) {
-            console.groupEnd();
-            return rows;
-        }
-        console.warn('menu_items returned empty/zero rows; falling back to local data.');
-    } catch (error) {
-        console.error('[admin] Could not fetch menu_items:', error);
-        showToast(`Could not load menu items: ${error.message}`, 'error');
-    }
-    let local = readLocal('emeraldAdminMenuItems', []);
-    console.log('local emeraldAdminMenuItems:', local);
-    if (!local.length) {
-        try {
-            const response = await fetch('./data/menu.json');
-            local = response.ok ? await response.json() : [];
-            console.log('fetched data/menu.json:', local.length, 'items');
-        } catch {
-            console.warn('data/menu.json fetch failed (open via local server?)');
-            local = [];
-        }
-    }
-    console.groupEnd();
-    return local.map(row => ({ ...row, id: row.id || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` }));
+    return (await fetchRows('menu_items', { order: 'name' })) || [];
 }
 
 async function renderItems() {
     if (!itemsList) return;
+    if (!isSupabaseConfigured()) {
+        itemsList.innerHTML = '<p class="admin-empty">Menu editing requires a Supabase connection.</p>';
+        return;
+    }
     const currency = await getCurrencySymbol();
     let items;
     try {
@@ -360,8 +317,6 @@ async function renderItems() {
             if (!confirm('Delete this menu item? This cannot be undone.')) return;
             try {
                 await deleteRow('menu_items', id);
-                const local = readLocal('emeraldAdminMenuItems', []);
-                writeLocal('emeraldAdminMenuItems', local.filter(item => String(item.id) !== id));
                 showToast('Menu item deleted.');
                 renderItems();
             } catch (error) {
@@ -527,23 +482,10 @@ async function buildItemForm(row = {}) {
             };
 
             if (editingItemId) {
-                if (isSupabaseConfigured()) {
-                    await updateRow('menu_items', editingItemId, payload);
-                } else {
-                    const local = readLocal('emeraldAdminMenuItems', []);
-                    const index = local.findIndex(item => String(item.id) === String(editingItemId));
-                    if (index > -1) local[index] = { ...local[index], ...payload, id: local[index].id };
-                    writeLocal('emeraldAdminMenuItems', local);
-                }
+                await updateRow('menu_items', editingItemId, payload);
                 showToast('Menu item updated.');
             } else {
-                if (isSupabaseConfigured()) {
-                    await insertRow('menu_items', payload);
-                } else {
-                    const local = readLocal('emeraldAdminMenuItems', []);
-                    local.unshift({ ...payload, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}` });
-                    writeLocal('emeraldAdminMenuItems', local);
-                }
+                await insertRow('menu_items', payload);
                 showToast('Menu item added.');
             }
 
@@ -558,9 +500,13 @@ async function buildItemForm(row = {}) {
     });
 }
 
-document.getElementById('add-item')?.addEventListener('click', () => buildItemForm());
-
-// ---------------- Categories ----------------
+document.getElementById('add-item')?.addEventListener('click', () => {
+    if (!isSupabaseConfigured()) {
+        showToast('Menu editing requires a Supabase connection.', 'error');
+        return;
+    }
+    buildItemForm();
+});
 
 const categoriesList = document.getElementById('categories-list');
 let editingCategoryId = null;
@@ -718,8 +664,6 @@ function buildCategoryForm(row = {}) {
 }
 
 document.getElementById('add-category')?.addEventListener('click', () => buildCategoryForm());
-
-// ---------------- Promotions ----------------
 
 const promotionsList = document.getElementById('promotions-list');
 let editingPromotionId = null;
@@ -1011,8 +955,6 @@ function buildPromotionForm(row = {}) {
 
 document.getElementById('add-promotion')?.addEventListener('click', () => buildPromotionForm());
 
-// ---------------- Subscribers ----------------
-
 const subscribersList = document.getElementById('subscribers-list');
 const subscriberSearch = document.getElementById('subscriber-search');
 
@@ -1088,8 +1030,6 @@ document.getElementById('export-subscribers')?.addEventListener('click', () => {
         showToast(`Exported ${csvRows.length} subscriber(s).`);
     });
 });
-
-// ---------------- Customers ----------------
 
 const customersList = document.getElementById('customers-list');
 const customerSearch = document.getElementById('customer-search');
@@ -1249,8 +1189,6 @@ if (customerSearch) {
     customerSearch.addEventListener('input', () => renderCustomers(customerSearch.value));
 }
 
-// ---------------- Settings ----------------
-
 const settingsForm = document.getElementById('settings-form');
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const DAY_LABELS = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
@@ -1347,7 +1285,6 @@ async function renderSettings() {
         input.checked = value === 'true' || value === true || value === '1' || value === 'on';
     }
 
-    // Load saved hours from the settings table (JSON) or the local default.
     const hoursRaw = await loadSetting('hours', '');
     if (hoursRaw) {
         try {
@@ -1485,8 +1422,6 @@ settingsForm?.addEventListener('submit', async event => {
     }
 });
 
-// ---------------- Data export ----------------
-
 document.getElementById('export-all-data')?.addEventListener('click', async () => {
     const message = document.getElementById('data-export-message');
     if (message) message.textContent = 'Preparing export&hellip;';
@@ -1518,7 +1453,6 @@ document.getElementById('export-all-data')?.addEventListener('click', async () =
     }
 });
 
-// Settings -> Data -> "Subscribers CSV" duplicates the subscribers-tab export.
 document.getElementById('export-subscribers-data')?.addEventListener('click', async () => {
     const message = document.getElementById('data-export-message');
     if (message) {
@@ -1544,8 +1478,6 @@ document.getElementById('export-subscribers-data')?.addEventListener('click', as
         }
     }
 });
-
-// ---------------- Admin credentials ----------------
 
 const adminCredentialsForm = document.getElementById('admin-credentials-form');
 
@@ -1593,12 +1525,11 @@ function initAdminCredentialsForm() {
     });
 }
 
-// ---------------- Dashboard init ----------------
-
 function initDashboard() {
     if (!isSupabaseConfigured()) {
         document.getElementById('admin-config-warning').classList.remove('hidden');
     }
+    refreshIcons();
     renderItems();
     renderCategories();
     renderPromotions();
@@ -1608,10 +1539,8 @@ function initDashboard() {
     initSettingsLogoUpload();
 }
 
-// Run auth init at the end of the module so every const above (itemsList,
-// categoriesList, settingsForm, etc.) has been initialized before we call
-// showDashboard() -> initDashboard() -> render*(). Otherwise the top-level
-// TDZ would throw "Cannot access 'X' before initialization".
+refreshIcons();
+
 if (isLoggedIn()) {
     showDashboard();
 } else {

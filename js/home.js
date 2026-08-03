@@ -1,7 +1,6 @@
 import { getReviews, addReview, addSubscriber, getSetting, getLocalSetting } from './utils/store.js';
 import { escapeHtml } from './utils/cart.js';
 
-// Renders the latest guest reviews and handles the review form.
 async function renderReviews() {
     const grid = document.getElementById('reviews-grid');
     if (!grid) return;
@@ -22,7 +21,6 @@ async function renderReviews() {
     `).join('');
 }
 
-// Submits a new review and refreshes the list.
 function initReviewForm() {
     const form = document.getElementById('review-form');
     if (!form) return;
@@ -53,7 +51,6 @@ function initReviewForm() {
     });
 }
 
-// Adds newsletter subscribers and applies saved site settings.
 function initNewsletter() {
     const form = document.querySelector('.newsletter-form');
     if (!form) return;
@@ -86,8 +83,6 @@ function initNewsletter() {
     });
 }
 
-// Applies settings saved from the admin page (announcement + hero text).
-// Reads Supabase first, then falls back to localStorage in demo mode.
 async function applySettings() {
     const announcement = (await getSetting('announcement')) || getLocalSetting('announcement');
     const announcementEl = document.querySelector('.announcement p');

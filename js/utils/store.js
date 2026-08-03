@@ -1,10 +1,6 @@
 import CONFIG from '../config.js';
 import { getSupabaseClient } from './supabase.js';
 
-// Generic helpers for reading and writing Supabase tables.
-// Every function returns null when Supabase is not configured,
-// so the site still works in demo mode.
-
 export async function fetchRows(tableName, options = {}) {
     const client = getSupabaseClient();
     if (!client) return null;
@@ -40,10 +36,6 @@ export async function deleteRow(tableName, id) {
     if (error) throw error;
     return true;
 }
-
-// ---------------------------------------------------------------
-// H E L P E R S   —   A D M I N   P A N E L
-// ---------------------------------------------------------------
 
 // Count rows in a table, optionally filtered by a column = value.
 export async function countRows(tableName, column = null, value = null) {
@@ -155,8 +147,6 @@ export function downloadAsCsv(filename, headers, rows) {
     downloadBlob(filename, toCSV(objects), 'text/csv');
 }
 
-// ---------------- Orders ----------------
-
 export async function saveOrder(order) {
     const row = await insertRow('orders', {
         order_number: order.orderNumber,
@@ -208,8 +198,6 @@ export async function getOrder(orderNumber) {
     return localOrders[orderNumber] || null;
 }
 
-// ---------------- Newsletter subscribers ----------------
-
 export async function getSubscribers() {
     return fetchRows('subscribers', { order: 'created_at', ascending: false });
 }
@@ -227,8 +215,6 @@ export async function removeSubscriber(id) {
     return deleteRow('subscribers', id);
 }
 
-// ---------------- Reviews ----------------
-
 export async function getReviews() {
     return fetchRows('reviews', { order: 'created_at', ascending: false, limit: 50 });
 }
@@ -241,8 +227,6 @@ export async function addReview(review) {
     localStorage.setItem('emeraldReviews', JSON.stringify(reviews));
     return review;
 }
-
-// ---------------- Promotions & settings ----------------
 
 export async function getActivePromotion() {
     const rows = await fetchRows('promotions', {
@@ -259,7 +243,6 @@ export async function getSetting(key, fallback = '') {
     return (rows && rows.length) ? rows[0].value : fallback;
 }
 
-// LocalStorage demo fallbacks for settings and promotions
 export function getLocalSetting(key, fallback = '') {
     const settings = JSON.parse(localStorage.getItem('emeraldSettings') || '{}');
     return settings[key] || fallback;

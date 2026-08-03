@@ -2,11 +2,6 @@ import { getCurrentUser, restoreSession, loginOrRegister, logoutUser } from './a
 import CONFIG from '../config.js';
 import { isAdminCredentials, getAdminCredentials } from './admin.js';
 
-// Shared auth UI injected into the header of every page.
-// Shows a "Sign in" button when logged out, or a small account
-// chip with a sign-out option when logged in.
-
-const ACCOUNT_STORAGE_KEY = 'emeraldAuthAccountState';
 let modalRoot = null;
 let lastFocusedElement = null;
 
@@ -17,6 +12,12 @@ function escapeHtml(value) {
         .replace(/>/g, '>')
         .replace(/"/g, '"')
         .replace(/'/g, '&#39;');
+}
+
+// Re-renders any <i data-lucide="..."> elements added to the DOM after the
+// initial page load. Safe no-op when Lucide is not loaded.
+function refreshIcons() {
+    if (window.lucide) window.lucide.createIcons();
 }
 
 // Inject a placeholder <div class="auth-slot"> inside each page's
@@ -43,7 +44,7 @@ function buildModal() {
     modalRoot.innerHTML = `
         <div class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
             <button type="button" class="modal-close auth-modal-close" aria-label="Close sign in">
-                <i class="fa-solid fa-xmark"></i>
+                <i data-lucide="x" aria-hidden="true"></i>
             </button>
             <div class="section-header">
                 <span class="eyebrow">Welcome</span>
@@ -78,6 +79,7 @@ function buildModal() {
     `;
 
     document.body.appendChild(modalRoot);
+    refreshIcons();
 
     const overlay = modalRoot;
     overlay.addEventListener('click', event => {
@@ -183,10 +185,11 @@ function renderAuthSlot() {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn btn-outline btn-sm auth-signin-btn';
-        btn.innerHTML = '<i class="fa-regular fa-user" aria-hidden="true"></i> Sign in';
+        btn.innerHTML = '<i data-lucide="user" aria-hidden="true"></i> Sign in';
         btn.setAttribute('aria-haspopup', 'dialog');
         btn.addEventListener('click', openModal);
         slot.appendChild(btn);
+        refreshIcons();
         return;
     }
 
@@ -210,11 +213,11 @@ function renderAuthSlot() {
         </div>
         ${isAdminCredentials(user.email) || isAdminCredentials(user.name) ? `
             <a href="admin.html" class="auth-menu-item">
-                <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Admin dashboard
+                <i data-lucide="gauge" aria-hidden="true"></i> Admin dashboard
             </a>
         ` : ''}
         <button type="button" class="auth-menu-item" data-auth-logout>
-            <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Sign out
+            <i data-lucide="log-out" aria-hidden="true"></i> Sign out
         </button>
     `;
 
@@ -241,6 +244,7 @@ function renderAuthSlot() {
     chipWrap.appendChild(chip);
     chipWrap.appendChild(menu);
     slot.appendChild(chipWrap);
+    refreshIcons();
 }
 
 // Public: restore any saved session, then render the header slot.

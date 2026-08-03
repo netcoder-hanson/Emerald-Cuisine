@@ -35,8 +35,6 @@ function buildTemplateParams(order) {
     };
 }
 
-// Sends an email to the restaurant and a receipt to the customer
-// using the same template, toggled with the is_restaurant / is_customer flags.
 export async function sendOrderEmails(order) {
     if (!isEmailConfigured()) return false;
     ensureInit();

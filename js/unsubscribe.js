@@ -11,8 +11,6 @@ function setMessage(text, isError = false) {
     message.classList.toggle('error', isError);
 }
 
-// Pre-fill the email from ?email= in the URL (used by unsubscribe links
-// generated inside the promo emails).
 function prefillEmail() {
     try {
         const params = new URLSearchParams(window.location.search);
@@ -21,7 +19,6 @@ function prefillEmail() {
             emailInput.value = email;
         }
     } catch {
-        // Ignore malformed URLs.
     }
 }
 

@@ -19,7 +19,6 @@ async function ensureSignedIn() {
     return null;
 }
 
-// Pre-fill the checkout name/email fields from the signed-in user.
 function prefillCheckout(user) {
     if (!checkoutForm || !user) return;
     const nameInput = checkoutForm.querySelector('input[name="fullName"]');
@@ -133,7 +132,6 @@ if (checkoutForm) {
         try {
             await saveOrder(orderData);
         } catch {
-            // Even if the database fails, continue to confirmation.
         }
         await sendOrderEmails(orderData);
         clearCart();
