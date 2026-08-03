@@ -31,6 +31,15 @@ const CONFIG = {
 
     adminUsername: 'admin',
     adminPassword: 'admin123',
+    // --- Admin page login (simple demo credentials) ---
+    // Default admin username + password. Use these on the site header or
+    // the admin login form to open the dashboard. You can change them
+    // inside the dashboard (Settings -> Admin credentials) or here.
+    adminUsername: 'admin',
+    adminPassword: 'admin123',
+    // Email used to sign in as admin from the site header as an alternative
+    // to the username. Entering this email + the admin password also
+    // redirects straight to admin.html.
     adminEmail: 'admin@emeraldscuisine.com',
 
     restaurantLocation: {

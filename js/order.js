@@ -159,6 +159,7 @@ function attachAuthGateEvents() {
             errorBox.classList.remove('error');
         }
 
+        // Admin sign-in (username or email + admin password) opens the dashboard.
         const enteredIdentifier = String(data.get('email') || '').trim().toLowerCase();
         if (await isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
             sessionStorage.setItem('emeraldAdmin', '1');

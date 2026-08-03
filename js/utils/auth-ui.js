@@ -229,6 +229,7 @@ function renderAuthSlot() {
         ${isAdminIdentifier(user.email) || isAdminIdentifier(user.name) ? `
             <a href="admin.html" class="auth-menu-item">
                 <i data-lucide="gauge" aria-hidden="true"></i> Admin dashboard
+                <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Admin dashboard
             </a>
         ` : ''}
         <button type="button" class="auth-menu-item" data-auth-logout>
