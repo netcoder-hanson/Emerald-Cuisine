@@ -7,39 +7,25 @@
 //
 // MailerSend API key lives ONLY as a Supabase secret:
 //     supabase secrets set MAILERSEND_API_KEY=mlsn.xxxx
-// Optionally set a template id / from address:
-//     supabase secrets set MAILERSEND_TEMPLATE_ID=...
-//     supabase secrets set MAILERSEND_FROM_EMAIL=offers@emeraldscuisine.com
+// Optionally set the from address / name:
+//     supabase secrets set MAILERSEND_FROM_EMAIL=netcoder.hanson@gmail.com
 //     supabase secrets set MAILERSEND_FROM_NAME="Emerald's Cuisine"
 //
 // Deploy with:
 //     supabase functions deploy send-promotion-email
 // ============================================================
 
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { withSupabase } from 'npm:@supabase/server';
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
-const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const MAILERSEND_API_KEY = Deno.env.get('MAILERSEND_API_KEY') || '';
-const MAILERSEND_TEMPLATE_ID = Deno.env.get('MAILERSEND_TEMPLATE_ID') || '';
-const FROM_EMAIL = Deno.env.get('MAILERSEND_FROM_EMAIL') || 'offers@emeraldscuisine.com';
+const FROM_EMAIL = Deno.env.get('MAILERSEND_FROM_EMAIL') || 'netcoder.hanson@gmail.com';
 const FROM_NAME = Deno.env.get('MAILERSEND_FROM_NAME') || "Emerald's Cuisine";
 // Public origin used to build unsubscribe links (e.g. https://emeraldscuisine.com).
 const SITE_URL = Deno.env.get('SITE_URL') || '';
 const MAILERSEND_API = 'https://api.mailersend.com/v3';
 
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-};
-
 function json(body, status = 200) {
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    return Response.json(body, { status });
 }
 
 function isValidEmail(email) {
@@ -50,9 +36,9 @@ function buildPromoHtml(promotion, discountText, unsubscribeUrl) {
     const description = String(promotion.description || promotion.message || '');
     const escape = (value) => String(value)
         .replace(/&/g, '&amp;')
-        .replace(/</g, '<')
-        .replace(/>/g, '>')
-        .replace(/"/g, '"')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
     return `
@@ -127,105 +113,103 @@ async function sendBulk(recipients, subject, buildHtmlFor) {
     return messages.length;
 }
 
-serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders });
-    }
-    if (req.method !== 'POST') {
-        return json({ error: 'Method not allowed' }, 405);
-    }
-    if (!MAILERSEND_API_KEY) {
-        return json({ error: 'MAILERSEND_API_KEY secret is not set on this Edge Function.' }, 500);
-    }
-
-    let payload;
-    try {
-        payload = await req.json();
-    } catch {
-        return json({ error: 'Invalid JSON body.' }, 400);
-    }
-
-    const promotionId = payload?.promotion_id;
-    if (!promotionId) {
-        return json({ error: 'promotion_id is required.' }, 400);
-    }
-
-    try {
-        const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
-
-        // 1. Load the promotion.
-        const { data: promotion, error: promoError } = await supabase
-            .from('promotions')
-            .select('*')
-            .eq('id', promotionId)
-            .single();
-        if (promoError || !promotion) {
-            return json({ error: 'Promotion not found.' }, 404);
+export default {
+    fetch: withSupabase({ auth: 'publishable' }, async (req, ctx) => {
+        if (req.method !== 'POST') {
+            return json({ error: 'Method not allowed' }, 405);
+        }
+        if (!MAILERSEND_API_KEY) {
+            return json({ error: 'MAILERSEND_API_KEY secret is not set on this Edge Function.' }, 500);
         }
 
-        // 2. Pull recipients respecting consent.
-        const [subResult, custResult] = await Promise.all([
-            supabase.from('subscribers').select('email').eq('status', 'active'),
-            supabase.from('customers').select('email').eq('marketing_opt_in', true)
-        ]);
+        let payload;
+        try {
+            payload = await req.json();
+        } catch {
+            return json({ error: 'Invalid JSON body.' }, 400);
+        }
 
-        const emails = new Set();
-        (subResult.data || []).forEach((row) => emails.add(String(row.email || '').trim().toLowerCase()));
-        (custResult.data || []).forEach((row) => emails.add(String(row.email || '').trim().toLowerCase()));
-        const recipients = [...emails].filter(isValidEmail);
+        const promotionId = payload?.promotion_id;
+        if (!promotionId) {
+            return json({ error: 'promotion_id is required.' }, 400);
+        }
 
-        const nowIso = new Date().toISOString();
-        const discountText = promotion.discount_value !== null && promotion.discount_value !== undefined
-            ? (promotion.discount_type === 'fixed'
-                ? `₦${Number(promotion.discount_value).toLocaleString()}`
-                : `${Number(promotion.discount_value)}%`)
-            : '';
+        try {
+            const supabase = ctx.supabaseAdmin;
 
-        if (!recipients.length) {
+            // 1. Load the promotion.
+            const { data: promotion, error: promoError } = await supabase
+                .from('promotions')
+                .select('*')
+                .eq('id', promotionId)
+                .single();
+            if (promoError || !promotion) {
+                return json({ error: 'Promotion not found.' }, 404);
+            }
+
+            // 2. Pull recipients respecting consent.
+            const [subResult, custResult] = await Promise.all([
+                supabase.from('subscribers').select('email').eq('status', 'active'),
+                supabase.from('customers').select('email').eq('marketing_opt_in', true)
+            ]);
+
+            const emails = new Set();
+            (subResult.data || []).forEach((row) => emails.add(String(row.email || '').trim().toLowerCase()));
+            (custResult.data || []).forEach((row) => emails.add(String(row.email || '').trim().toLowerCase()));
+            const recipients = [...emails].filter(isValidEmail);
+
+            const nowIso = new Date().toISOString();
+            const discountText = promotion.discount_value !== null && promotion.discount_value !== undefined
+                ? (promotion.discount_type === 'fixed'
+                    ? `₦${Number(promotion.discount_value).toLocaleString()}`
+                    : `${Number(promotion.discount_value)}%`)
+                : '';
+
+            if (!recipients.length) {
+                await supabase.from('promotions').update({
+                    is_live: true,
+                    last_sent_at: nowIso,
+                    last_sent_count: 0,
+                    last_failed_count: 0
+                }).eq('id', promotionId);
+                return json({ sent: 0, failed: 0, message: 'No active recipients to email.' });
+            }
+
+            // 3. Send in batches of 100 (MailerSend bulk limit).
+            const subject = `Special offer: ${promotion.title}`;
+            const buildHtmlFor = (email, unsubscribeUrl) =>
+                buildPromoHtml(promotion, discountText, unsubscribeUrl);
+
+            let sent = 0;
+            let failed = 0;
+            for (let i = 0; i < recipients.length; i += 100) {
+                const batch = recipients.slice(i, i + 100);
+                try {
+                    const accepted = await sendBulk(batch, subject, buildHtmlFor);
+                    sent += accepted;
+                } catch (err) {
+                    console.error('Bulk batch failed:', err);
+                    failed += batch.length;
+                }
+            }
+
+            // 4. Record the result back on the promotion.
             await supabase.from('promotions').update({
                 is_live: true,
                 last_sent_at: nowIso,
-                last_sent_count: 0,
-                last_failed_count: 0
+                last_sent_count: sent,
+                last_failed_count: failed
             }).eq('id', promotionId);
-            return json({ sent: 0, failed: 0, message: 'No active recipients to email.' });
+
+            return json({
+                sent,
+                failed,
+                recipients: recipients.length,
+                message: `${sent} email(s) accepted, ${failed} failed.`
+            });
+        } catch (err) {
+            console.error('send-promotion-email error:', err);
+            return json({ error: `Internal error: ${err.message}` }, 500);
         }
-
-        // 3. Send in batches of 100 (MailerSend bulk limit).
-        const subject = `Special offer: ${promotion.title}`;
-        const buildHtmlFor = (email, unsubscribeUrl) =>
-            buildPromoHtml(promotion, discountText, unsubscribeUrl);
-
-        let sent = 0;
-        let failed = 0;
-        for (let i = 0; i < recipients.length; i += 100) {
-            const batch = recipients.slice(i, i + 100);
-            try {
-                const accepted = await sendBulk(batch, subject, buildHtmlFor);
-                sent += accepted;
-            } catch (err) {
-                console.error('Bulk batch failed:', err);
-                failed += batch.length;
-            }
-        }
-
-        // 4. Record the result back on the promotion.
-        await supabase.from('promotions').update({
-            is_live: true,
-            last_sent_at: nowIso,
-            last_sent_count: sent,
-            last_failed_count: failed
-        }).eq('id', promotionId);
-
-        return json({
-            sent,
-            failed,
-            recipients: recipients.length,
-            message: `${sent} email(s) accepted, ${failed} failed.`
-        });
-    } catch (err) {
-        console.error('send-promotion-email error:', err);
-        return json({ error: `Internal error: ${err.message}` }, 500);
-    }
-});
-
+    })
+};

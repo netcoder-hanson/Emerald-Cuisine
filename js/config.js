@@ -15,12 +15,15 @@ const CONFIG = {
     // Create a project, then open Project Settings -> API.
     supabase: {
         url: 'https://nbzqofzuotetkvtuloba.supabase.co',
-        anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5ienFvZnp1b3RldGt2dHVsb2JhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1Mzc4NTMsImV4cCI6MjEwMTExMzg1M30.DZmCcj8fF3wWo4i0B0Wo8w1FzHvzp3hb6aNUtv7m_Vw',
+        // Modern publishable API key (sb_publishable_...). Replaces the
+        // legacy anon key; used for client access AND edge function auth.
+        anonKey: 'sb_publishable_EkNPqY8W9_GvtD_yeO9UrQ_ygxRbQZ8',
         // Storage bucket used for menu item / logo image uploads.
         storageBucket: 'menu-images',
         // Base URL for Supabase Edge Functions. The promotions "Go live"
-        // button calls <this base>/send-promotion-email. The anon key is
-        // used for authorization (the function itself reads its secret).
+        // button calls <this base>/send-promotion-email. The publishable
+        // key is used for authorization (the function itself reads its
+        // MailerSend secret).
         functionsBaseUrl: 'https://nbzqofzuotetkvtuloba.supabase.co/functions/v1'
     },
 
@@ -33,7 +36,7 @@ const CONFIG = {
         leadTime: 30            // minutes
     },
 
-    // --- EmailJS (sending emails from the browser) ---
+    // --- EmailJS (order emails only) ---
     // Create an account, add an email service and ONE template.
     // Set the template's "To Email" field to {{to_email}} and use these
     // variable names inside it:
@@ -41,7 +44,8 @@ const CONFIG = {
     //     customer_email, customer_phone, address, delivery_type,
     //     payment_method, items, total, estimated_time
     //   customer receipt:   is_customer (same order variables)
-    //   promo blast:        is_promo, customer_email, title, message, discount
+    // NOTE: promotion mail no longer uses EmailJS — it goes through the
+    // MailerSend-powered send-promotion-email Supabase Edge Function.
     emailjs: {
         publicKey: 'V4Tpt0y6t2153vgDX',         // Account -> General -> Public Key
         serviceId: 'service_tidc7oe',         // your email service id, e.g. 'service_abc'

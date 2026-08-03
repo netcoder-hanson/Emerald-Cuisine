@@ -57,22 +57,3 @@ export async function sendOrderEmails(order) {
         return false;
     }
 }
-
-// Sends a promotional email to every newsletter subscriber.
-export async function sendPromoEmails(subscribers, promotion) {
-    if (!isEmailConfigured()) return false;
-    ensureInit();
-    const requests = (subscribers || []).map(subscriber =>
-        window.emailjs.send(CONFIG.emailjs.serviceId, CONFIG.emailjs.templateId, {
-            to_email: subscriber.email,
-            is_promo: true,
-            customer_email: subscriber.email,
-            title: promotion.title,
-            message: promotion.message,
-            discount: promotion.discount || ''
-        })
-    );
-    if (!requests.length) return false;
-    const results = await Promise.allSettled(requests);
-    return results.filter(result => result.status === 'fulfilled').length;
-}

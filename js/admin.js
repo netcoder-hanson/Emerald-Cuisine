@@ -5,7 +5,6 @@ import {
     uploadImage, invokeEdgeFunction, toCSV, downloadBlob,
     getSubscribers, removeSubscriber, getSetting
 } from './utils/store.js';
-import { sendPromoEmails } from './utils/email.js';
 import { CATEGORY_SLUGS } from './utils/menu.js';
 import { escapeHtml } from './utils/cart.js';
 import { getAdminCredentials, saveAdminCredentials, isAdminCredentials } from './utils/admin.js';
@@ -854,16 +853,13 @@ async function goLive(promotionId) {
     }
 
     try {
-        let result;
-        if (isSupabaseConfigured()) {
-            result = await invokeEdgeFunction('send-promotion-email', { promotion_id: promotionId });
-            if (!result) throw new Error('The email function returned no result. Is it deployed?');
-        } else {
-            // Demo mode fallback: EmailJS (only when configured).
-            const subscribers = (await getSubscribers()) || readLocal('emeraldSubscribers', []);
-            const sent = await sendPromoEmails(subscribers, row);
-            result = { sent: sent || 0, failed: 0, message: 'Demo send via EmailJS' };
+        // Promotion mail goes ONLY through the MailerSend-powered edge
+        // function. EmailJS is no longer used for promo blasts.
+        if (!isSupabaseConfigured()) {
+            throw new Error('Supabase is not configured. Promotion emails need the deployed send-promotion-email edge function.');
         }
+        const result = await invokeEdgeFunction('send-promotion-email', { promotion_id: promotionId });
+        if (!result) throw new Error('The email function returned no result. Is it deployed?');
 
         const sent = Number(result.sent ?? 0);
         const failed = Number(result.failed ?? 0);
