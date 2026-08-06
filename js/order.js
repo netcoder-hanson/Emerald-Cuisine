@@ -1,190 +1,9 @@
 import { getCart, saveCart, formatPrice, calculateTotals, getCartItemCount, escapeHtml, getCartItemDetails, saveCartItemDetails, removeCartItemDetails } from './utils/cart.js';
 import { getMenuItems } from './utils/menu.js';
-import { getCurrentUser, loginOrRegister } from './utils/auth.js';
-import { isAdminCredentials } from './utils/admin.js';
+import { getCurrentUser } from './utils/auth.js';
+import { openAuthModal } from './utils/auth-ui.js';
 
 let menuItems = [];
-
-const imageDictionary = [
-    {
-        keywords: ['jollof', 'rice'],
-        src: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&w=900&q=80',
-        alt: 'Jollof rice with grilled chicken'
-    },
-    {
-        keywords: ['full english'],
-        src: 'images/categories/Eggs, sausage, beans, grilled tomato and toast.jpg',
-        alt: 'Full English breakfast with eggs and sausage'
-    },
-    {
-        keywords: ['custard', 'akamu', 'akara', 'breakfast', 'eggs'],
-        src: 'images/categories/akara & pap.jpg',
-        alt: 'Akara and pap, a classic Nigerian breakfast'
-    },
-    {
-        keywords: ['coconut rice', 'egusi', 'ofada', 'nigerian', 'plantain'],
-        src: 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&w=900&q=80',
-        alt: 'Nigerian coconut rice with chicken and plantain'
-    },
-    {
-        keywords: ['alfredo', 'pasta', 'spaghetti', 'noodles', 'yakisoba', 'chow mein'],
-        src: 'https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&w=900&q=80',
-        alt: 'Creamy pasta dish with chicken'
-    },
-    {
-        keywords: ['pepper soup', 'catfish', 'soup', 'broth'],
-        src: 'https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80',
-        alt: 'Spicy pepper soup bowl'
-    },
-    {
-        keywords: ['suya', 'chicken', 'grilled', 'peppered', 'steak'],
-        src: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80',
-        alt: 'Grilled chicken or steak with sides'
-    },
-    {
-        keywords: ['salad', 'avocado', 'turkey'],
-        src: 'https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?auto=format&w=900&q=80',
-        alt: 'Fresh salad bowl with avocado'
-    },
-    {
-        keywords: ['brownie', 'dessert', 'cake', 'ice cream', 'parfait'],
-        src: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80',
-        alt: 'Chocolate brownie dessert'
-    },
-    {
-        keywords: ['juice', 'cocktail', 'drink', 'ginger', 'zobo', 'mocktail', 'tea'],
-        src: 'https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80',
-        alt: 'Refreshing beverage with ginger and mint'
-    },
-    {
-        keywords: ['titus fish', 'side', 'coleslaw', 'fries'],
-        src: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80',
-        alt: 'Side dish with fish and garnish'
-    }
-];
-
-function getImageForItem(item) {
-    const text = `${item.name} ${item.description}`.toLowerCase();
-    const match = imageDictionary.find(entry => entry.keywords.some(keyword => text.includes(keyword)));
-    return match || { src: item.image, alt: item.name };
-}
-
-const orderGrid = document.querySelector('.order-menu-grid');
-const cartItemsContainer = document.querySelector('.cart-items');
-const subtotalElement = document.getElementById('cart-subtotal');
-const deliveryElement = document.getElementById('cart-delivery');
-const vatElement = document.getElementById('cart-vat');
-const totalElement = document.getElementById('cart-total');
-const searchInput = document.getElementById('menu-search');
-const categorySelect = document.getElementById('category-select');
-const cartOverlay = document.getElementById('cartOverlay');
-const cartPanel = document.getElementById('cart');
-const cartCloseButton = document.querySelector('.cart-close');
-const cartTriggerButton = document.querySelector('.cart-trigger');
-let lastCartFocused = null;
-
-function buildAuthGate() {
-    const existingGate = document.getElementById('checkout-auth-gate');
-    if (existingGate) return existingGate;
-
-    const gate = document.createElement('div');
-    gate.id = 'checkout-auth-gate';
-    gate.className = 'modal-overlay active';
-    gate.setAttribute('aria-hidden', 'true');
-    gate.innerHTML = `
-        <div class="checkout-auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-gate-title">
-            <div class="section-header">
-                <span class="eyebrow">Account required</span>
-                <h3 id="auth-gate-title">Continue to checkout</h3>
-            </div>
-            <p class="auth-gate-copy">Please sign in or create an account to continue to checkout.</p>
-            <form id="checkout-auth-form" class="checkout-auth-form">
-                <label>
-                    Full name
-                    <input type="text" name="name" placeholder="Your full name">
-                </label>
-                <label>
-                    Email address
-                    <input type="email" name="email" placeholder="you@example.com" required>
-                </label>
-                <label>
-                    Password
-                    <input type="password" name="password" placeholder="Choose a password" required>
-                </label>
-                <label class="checkbox-row">
-                    <input type="checkbox" name="rememberMe" value="true">
-                    Keep me signed in
-                </label>
-                <div class="auth-gate-actions">
-                    <button type="submit" class="btn btn-primary btn-full">Continue</button>
-                    <button type="button" id="close-auth-gate" class="btn btn-secondary btn-full">Cancel</button>
-                </div>
-                <p id="auth-error" class="form-message" aria-live="polite"></p>
-            </form>
-        </div>
-    `;
-
-    document.body.appendChild(gate);
-    return gate;
-}
-
-function openAuthGate() {
-    const gate = buildAuthGate();
-    gate.style.display = 'flex';
-    gate.setAttribute('aria-hidden', 'false');
-    gate.querySelector('input[name="email"]')?.focus();
-}
-
-function closeAuthGate() {
-    const gate = document.getElementById('checkout-auth-gate');
-    if (!gate) return;
-    gate.style.display = 'none';
-    gate.setAttribute('aria-hidden', 'true');
-}
-
-function attachAuthGateEvents() {
-    const gate = document.getElementById('checkout-auth-gate');
-    if (!gate) return;
-
-    gate.querySelector('#close-auth-gate')?.addEventListener('click', closeAuthGate);
-
-    gate.querySelector('#checkout-auth-form')?.addEventListener('submit', async event => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const errorBox = document.getElementById('auth-error');
-        const data = new FormData(form);
-
-        if (errorBox) {
-            errorBox.textContent = '';
-            errorBox.classList.remove('error');
-        }
-
-        // Admin sign-in (username or email + admin password) opens the dashboard.
-        const enteredIdentifier = String(data.get('email') || '').trim().toLowerCase();
-        if (await isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
-            sessionStorage.setItem('emeraldAdmin', '1');
-            closeAuthGate();
-            window.location.href = 'admin.html';
-            return;
-        }
-
-        try {
-            await loginOrRegister({
-                name: data.get('name'),
-                email: data.get('email'),
-                password: data.get('password'),
-                rememberMe: data.get('rememberMe') === 'true'
-            });
-            closeAuthGate();
-            window.location.href = 'checkout.html';
-        } catch (error) {
-            if (errorBox) {
-                errorBox.textContent = error.message;
-                errorBox.classList.add('error');
-            }
-        }
-    });
-}
 
 function isMobileCartModal() {
     return window.matchMedia('(max-width: 1024px)').matches;
@@ -388,8 +207,11 @@ if (checkoutButton) {
     checkoutButton.addEventListener('click', event => {
         if (!getCurrentUser()) {
             event.preventDefault();
-            openAuthGate();
-            attachAuthGateEvents();
+            openAuthModal({
+                onSuccess: () => {
+                    window.location.href = 'checkout.html';
+                }
+            });
         }
     });
 }
@@ -414,80 +236,6 @@ document.addEventListener('keydown', event => {
     }
 });
 
-const trackButton = document.getElementById('track-order-btn');
-const trackNumberInput = document.getElementById('track-order-number');
-const trackStatus = document.getElementById('track-status');
-
-const ORDER_STATUS = [
-    {
-        title: 'Order confirmed',
-        description: 'We received your order and have started preparing it.'
-    },
-    {
-        title: 'Preparing your meal',
-        description: 'Your chef is cooking your order with fresh, premium ingredients.'
-    },
-    {
-        title: 'Out for delivery',
-        description: 'A delivery partner is on the way to your address.'
-    },
-    {
-        title: 'Delivered',
-        description: 'Your order has been delivered. Enjoy your meal!'
-    }
-];
-
-function getOrderProgress(orderNumber) {
-    const seed = orderNumber.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    const stage = Math.min(ORDER_STATUS.length, Math.max(1, (seed % ORDER_STATUS.length) + 1));
-    const eta = 20 + (stage - 1) * 10;
-    const steps = ORDER_STATUS.map((status, index) => ({
-        ...status,
-        completed: index < stage
-    }));
-
-    return {
-        stage,
-        eta,
-        steps,
-        statusText: ORDER_STATUS[stage - 1].title
-    };
-}
-
-function renderOrderTracking(orderNumber) {
-    const { eta, steps, statusText } = getOrderProgress(orderNumber);
-    const statusItems = steps.map(step => `
-        <li class="${step.completed ? 'completed' : ''}">
-            <strong>${step.title}</strong>
-            <span>${step.description}</span>
-        </li>
-    `).join('');
-
-    trackStatus.innerHTML = `
-        <div class="track-summary">
-            <p>Order <strong>${orderNumber}</strong> is currently <strong>${statusText.toLowerCase()}</strong>.</p>
-            <p>${statusText === 'Delivered' ? 'Thank you for choosing Emerald’s Cuisine!' : `Estimated delivery in ${eta} minutes.`}</p>
-        </div>
-        <ul class="track-steps">${statusItems}</ul>
-    `;
-}
-   
-if (trackButton && trackNumberInput && trackStatus) {
-    trackButton.addEventListener('click', () => {
-        const orderNumber = trackNumberInput.value.trim().toUpperCase();
-        if (!orderNumber) {
-            trackStatus.innerHTML = '<p>Please enter a valid order number to track.</p>';
-            return;
-        }
-
-        if (!/^EBF\d{3,6}$/.test(orderNumber)) {
-            trackStatus.innerHTML = '<p>Please use an order number like <strong>EBF1234</strong>.</p>';
-            return;
-        }
-
-        renderOrderTracking(orderNumber);
-    });
-}
 
 if (orderGrid) {
     orderGrid.addEventListener('click', event => {

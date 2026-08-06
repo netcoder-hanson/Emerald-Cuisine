@@ -1,5 +1,16 @@
 history.scrollRestoration = 'manual';
 
+const TABLE_FEES = {
+    standard: 5000,
+    vip: 15000,
+    private: 30000,
+    outdoor: 10000
+};
+
+function formatPrice(value) {
+    return `₦${(Number(value) || 0).toLocaleString()}`;
+}
+
 function resetScrollPosition() {
     if (!window.location.hash) {
         window.scrollTo(0, 0);
@@ -133,6 +144,29 @@ function openModal() {
     reservationModal.querySelector('input, select, textarea, button')?.focus();
 }
 
+function resetReservationModalState() {
+    if (!reservationModal) return;
+    const modalHeader = reservationModal.querySelector('.modal-header');
+    const successView = reservationModal.querySelector('.reservation-success');
+    const message = reservationModal.querySelector('.form-message');
+
+    if (message) {
+        message.textContent = '';
+        message.classList.remove('error');
+    }
+    if (reservationForm) {
+        reservationForm.reset();
+        reservationForm.classList.remove('hidden');
+    }
+    if (modalHeader) {
+        modalHeader.classList.remove('hidden');
+    }
+    if (successView) {
+        successView.classList.add('hidden');
+    }
+    updateReservationFee();
+}
+
 function closeModal() {
     if (!reservationModal || !modalOverlay) return;
     reservationModal.classList.remove('active');
@@ -145,6 +179,7 @@ function closeModal() {
         lastFocusedElement.focus();
         lastFocusedElement = null;
     }
+    resetReservationModalState();
 }
 
 reserveTriggers.forEach(button => {
@@ -159,6 +194,28 @@ if (modalOverlay) {
     modalOverlay.addEventListener('click', closeModal);
 }
 
+if (reservationModal) {
+    reservationModal.addEventListener('click', event => {
+        if (event.target.closest('#reservation-continue')) {
+            closeModal();
+        }
+    });
+}
+
+const tableTypeSelect = document.getElementById('reservation-table-type');
+const feeAmountEl = document.getElementById('reservation-fee-amount');
+
+function updateReservationFee() {
+    if (!tableTypeSelect || !feeAmountEl) return;
+    const selectedType = tableTypeSelect.value;
+    const fee = TABLE_FEES[selectedType] || 0;
+    feeAmountEl.textContent = formatPrice(fee);
+}
+
+if (tableTypeSelect) {
+    tableTypeSelect.addEventListener('change', updateReservationFee);
+}
+
 if (reservationForm) {
     reservationForm.addEventListener('submit', event => {
         event.preventDefault();
@@ -169,22 +226,41 @@ if (reservationForm) {
         const date = formData.get('date');
         const time = formData.get('time');
         const guests = formData.get('guests');
+        const tableType = formData.get('tableType');
+        const fee = TABLE_FEES[tableType] || 0;
 
-        if (!name || !phone || !email || !date || !time || !guests) {
+        if (!name || !phone || !email || !date || !time || !guests || !tableType) {
             const message = reservationForm.querySelector('.form-message');
             message.textContent = 'Please complete all required fields.';
             message.classList.add('error');
             return;
         }
 
-        const successMessage = reservationForm.querySelector('.form-message');
-        successMessage.classList.remove('error');
-        reservationForm.reset();
-        successMessage.textContent = 'Your reservation request has been received. We will contact you to confirm the details.';
-        setTimeout(() => {
-            reservationForm.querySelector('.form-message').textContent = '';
-            closeModal();
-        }, 2000);
+        const reservationPayload = {
+            name,
+            phone,
+            email,
+            date,
+            time,
+            guests,
+            tableType,
+            fee,
+            feeFormatted: formatPrice(fee),
+            requests: formData.get('requests') ? formData.get('requests').trim() : ''
+        };
+
+        const modalHeader = reservationModal.querySelector('.modal-header');
+        const successView = reservationModal.querySelector('.reservation-success');
+
+        if (modalHeader) modalHeader.classList.add('hidden');
+        reservationForm.classList.add('hidden');
+
+        if (successView) {
+            successView.classList.remove('hidden');
+            if (window.lucide) window.lucide.createIcons();
+            const continueBtn = successView.querySelector('#reservation-continue');
+            if (continueBtn) continueBtn.focus();
+        }
     });
 }
 

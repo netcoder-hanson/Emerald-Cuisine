@@ -110,7 +110,16 @@ function buildModal() {
     return modalRoot;
 }
 
-function openModal() {
+let pendingAuthCallback = null;
+
+export function openAuthModal(options = {}) {
+    if (typeof options === 'function') {
+        pendingAuthCallback = options;
+    } else if (options && typeof options.onSuccess === 'function') {
+        pendingAuthCallback = options.onSuccess;
+    } else {
+        pendingAuthCallback = null;
+    }
     const modal = buildModal();
     lastFocusedElement = document.activeElement;
     modal.classList.add('active');
@@ -128,6 +137,7 @@ function openModal() {
 
 function closeModal() {
     if (!modalRoot) return;
+    pendingAuthCallback = null;
     modalRoot.classList.remove('active');
     modalRoot.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
@@ -168,14 +178,20 @@ async function onSubmit(event) {
             submitButton.disabled = true;
             submitButton.textContent = 'Signing in...';
         }
-        await loginOrRegister({
+        const user = await loginOrRegister({
             name: data.get('name'),
             email: data.get('email'),
             password: data.get('password'),
             rememberMe: data.get('rememberMe') === 'true'
         });
+        document.dispatchEvent(new CustomEvent('auth:signed-in', { detail: user || getCurrentUser() }));
+        const cb = pendingAuthCallback;
         closeModal();
         renderAuthSlot();
+        renderSidebarAuthSlot();
+        if (typeof cb === 'function') {
+            cb(user || getCurrentUser());
+        }
     } catch (error) {
         message.textContent = error.message || 'Could not sign in. Please try again.';
         message.classList.add('error');
@@ -202,7 +218,7 @@ function renderAuthSlot() {
         btn.className = 'btn btn-outline btn-sm auth-signin-btn';
         btn.innerHTML = '<i data-lucide="user" aria-hidden="true"></i> Sign in';
         btn.setAttribute('aria-haspopup', 'dialog');
-        btn.addEventListener('click', openModal);
+        btn.addEventListener('click', openAuthModal);
         slot.appendChild(btn);
         refreshIcons();
         return;
@@ -276,7 +292,7 @@ function renderSidebarAuthSlot() {
         btn.className = 'btn btn-outline btn-sm auth-signin-btn';
         btn.innerHTML = '<i data-lucide="user" aria-hidden="true"></i> Sign in';
         btn.setAttribute('aria-haspopup', 'dialog');
-        btn.addEventListener('click', openModal);
+        btn.addEventListener('click', openAuthModal);
         slot.appendChild(btn);
         refreshIcons();
         return;
