@@ -55,19 +55,7 @@ async function unsubscribe(email) {
         return { ok: true, message: 'Your marketing preference has been updated. You will no longer receive promotional emails.' };
     }
 
-    // Demo mode fallback: update the local subscribers list.
-    try {
-        const subscribers = JSON.parse(localStorage.getItem('emeraldSubscribers') || '[]');
-        const index = subscribers.findIndex(sub => String(sub.email || '').trim().toLowerCase() === normalized);
-        if (index > -1) {
-            subscribers[index].status = 'unsubscribed';
-            localStorage.setItem('emeraldSubscribers', JSON.stringify(subscribers));
-            return { ok: true, message: 'You have been unsubscribed from promotional emails.' };
-        }
-        return { ok: true, message: 'You are not currently subscribed. No changes were needed.' };
-    } catch {
-        return { ok: false, message: 'We could not update your preference right now. Please try again later.' };
-    }
+    return { ok: false, message: 'We could not update your preference right now. Please try again later.' };
 }
 
 if (form) {

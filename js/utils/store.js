@@ -37,7 +37,6 @@ export async function deleteRow(tableName, id) {
     return true;
 }
 
-// Count rows in a table, optionally filtered by a column = value.
 export async function countRows(tableName, column = null, value = null) {
     const client = getSupabaseClient();
     if (!client) return null;
@@ -48,12 +47,10 @@ export async function countRows(tableName, column = null, value = null) {
     return count ?? 0;
 }
 
-// Count menu items referencing a category_id.
 export async function countMenuItemsByCategory(categoryId) {
     return countRows('menu_items', 'category_id', categoryId);
 }
 
-// Fetch rows where a column matches any of many values (order history lookup).
 export async function fetchRowsIn(tableName, column, values) {
     const client = getSupabaseClient();
     if (!client) return null;
@@ -63,7 +60,6 @@ export async function fetchRowsIn(tableName, column, values) {
     return data;
 }
 
-// Upload a File to Supabase Storage (bucket from config) and return the public URL.
 export async function uploadImage(file, folder = 'menu') {
     const client = getSupabaseClient();
     if (!client || !file) return null;
@@ -78,7 +74,6 @@ export async function uploadImage(file, folder = 'menu') {
     return publicUrl?.publicUrl || null;
 }
 
-// Invoke a Supabase Edge Function and return its parsed JSON response.
 export async function invokeEdgeFunction(functionName, body) {
     const client = getSupabaseClient();
     if (!client || !client.functions) return null;
@@ -87,7 +82,6 @@ export async function invokeEdgeFunction(functionName, body) {
     return data;
 }
 
-// Export every table as JSON (Settings -> Data -> Export all data).
 export async function exportAllData() {
     const tables = ['menu_items', 'categories', 'promotions', 'subscribers', 'customers', 'orders', 'settings'];
     const result = {};
@@ -102,13 +96,11 @@ export async function exportAllData() {
     return result;
 }
 
-// CSV-safe quoting helper.
 function csvCell(value) {
     const string = String(value ?? '');
     return /[",\n]/.test(string) ? `"${string.replace(/"/g, '""')}"` : string;
 }
 
-// Build a CSV string from an array of objects (keys from the first row).
 export function toCSV(rows) {
     if (!rows || !rows.length) return '';
     const headers = Object.keys(rows[0]);
@@ -119,7 +111,6 @@ export function toCSV(rows) {
     return lines.join('\n');
 }
 
-// Download a blob (CSV or JSON) to the user's machine.
 export function downloadBlob(filename, content, mime = 'text/plain') {
     const blob = new Blob([content], { type: `${mime};charset=utf-8` });
     const url = URL.createObjectURL(blob);
@@ -132,12 +123,10 @@ export function downloadBlob(filename, content, mime = 'text/plain') {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-// Download a JSON file.
 export function downloadAsJson(filename, data) {
     downloadBlob(filename, JSON.stringify(data, null, 2), 'application/json');
 }
 
-// Download rows as CSV given explicit headers.
 export function downloadAsCsv(filename, headers, rows) {
     const objects = rows.map(row => {
         const obj = {};
@@ -163,17 +152,8 @@ export async function saveOrder(order) {
         total: order.total,
         status: 'received'
     });
-    if (row) return row;
-    // Demo mode fallback: keep orders in localStorage
-    let localOrders = {};
-    try {
-        localOrders = JSON.parse(localStorage.getItem('emeraldOrders') || '{}');
-    } catch {
-        localOrders = {};
-    }
-    localOrders[order.orderNumber] = { ...order, createdAt: order.createdAt || Date.now(), status: 'received' };
-    localStorage.setItem('emeraldOrders', JSON.stringify(localOrders));
-    return order;
+    if (!row) throw new Error('Failed to save order to database');
+    return row;
 }
 
 export async function getOrder(orderNumber) {
@@ -198,14 +178,7 @@ export async function getOrder(orderNumber) {
             createdAt: row.created_at
         };
     }
-    // Demo mode fallback
-    let localOrders = {};
-    try {
-        localOrders = JSON.parse(localStorage.getItem('emeraldOrders') || '{}');
-    } catch {
-        localOrders = {};
-    }
-    return localOrders[orderNumber] || null;
+    return null;
 }
 
 export async function getSubscribers() {
@@ -216,13 +189,8 @@ export async function addSubscriber(email) {
     const normalized = String(email || '').trim().toLowerCase();
     if (!normalized) return null;
     const row = await insertRow('subscribers', { email: normalized });
-    if (row) return row;
-    const subscribers = JSON.parse(localStorage.getItem('emeraldSubscribers') || '[]');
-    if (!subscribers.some(sub => String(sub.email).trim().toLowerCase() === normalized)) {
-        subscribers.push({ email: normalized });
-    }
-    localStorage.setItem('emeraldSubscribers', JSON.stringify(subscribers));
-    return { email: normalized };
+    if (!row) throw new Error('Failed to subscribe');
+    return row;
 }
 
 export async function removeSubscriber(id) {
@@ -230,24 +198,13 @@ export async function removeSubscriber(id) {
 }
 
 export async function getReviews() {
-    const rows = await fetchRows('reviews', { order: 'created_at', ascending: false, limit: 50 });
-    if (rows) return rows;
-    // Demo mode fallback: mirror what addReview() writes to localStorage
-    try {
-        const localReviews = JSON.parse(localStorage.getItem('emeraldReviews') || 'null');
-        return Array.isArray(localReviews) ? localReviews : [];
-    } catch {
-        return [];
-    }
+    return fetchRows('reviews', { order: 'created_at', ascending: false, limit: 50 });
 }
 
 export async function addReview(review) {
     const row = await insertRow('reviews', review);
-    if (row) return row;
-    const reviews = JSON.parse(localStorage.getItem('emeraldReviews') || '[]');
-    reviews.unshift({ ...review, created_at: new Date().toISOString() });
-    localStorage.setItem('emeraldReviews', JSON.stringify(reviews));
-    return review;
+    if (!row) throw new Error('Failed to add review');
+    return row;
 }
 
 export async function getActivePromotion() {
@@ -268,9 +225,4 @@ export async function getSetting(key, fallback = '') {
         console.error(`Failed to fetch setting "${key}":`, error);
         return fallback;
     }
-}
-
-export function getLocalSetting(key, fallback = '') {
-    const settings = JSON.parse(localStorage.getItem('emeraldSettings') || '{}');
-    return settings[key] || fallback;
 }

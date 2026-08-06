@@ -229,23 +229,6 @@ function refreshIcons() {
     if (window.lucide) window.lucide.createIcons();
 }
 
-function readLocal(key, fallback) {
-    try {
-        const value = JSON.parse(localStorage.getItem(key) || 'null');
-        return value ?? fallback;
-    } catch {
-        return fallback;
-    }
-}
-
-function writeLocal(key, value) {
-    try {
-        localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-        // Storage unavailable — ignore.
-    }
-}
-
 async function getCurrencySymbol() {
     try {
         const currency = await getSetting('currency');
@@ -518,15 +501,11 @@ async function getAdminCategories() {
     } catch (error) {
         showToast(`Could not load categories: ${error.message}`, 'error');
     }
-    let local = readLocal('emeraldAdminCategories', []);
-    if (!local.length) {
-        local = CATEGORY_SLUGS.map((slug, index) => ({
-            id: null,
-            name: slug.charAt(0).toUpperCase() + slug.slice(1),
-            display_order: index
-        }));
-    }
-    return local;
+    return CATEGORY_SLUGS.map((slug, index) => ({
+        id: null,
+        name: slug.charAt(0).toUpperCase() + slug.slice(1),
+        display_order: index
+    }));
 }
 
 async function renderCategories() {
@@ -581,8 +560,6 @@ async function renderCategories() {
                 if (cat.id) {
                     await deleteRow('categories', cat.id);
                 }
-                const local = readLocal('emeraldAdminCategories', []);
-                writeLocal('emeraldAdminCategories', local.filter(c => String(c.id || c.name) !== key));
                 showToast('Category deleted.');
                 renderCategories();
             } catch (error) {
@@ -633,23 +610,10 @@ function buildCategoryForm(row = {}) {
 
         try {
             if (editingCategoryId) {
-                if (isSupabaseConfigured()) {
-                    await updateRow('categories', editingCategoryId, { name, display_order, sort_order: displayOrder });
-                } else {
-                    const local = readLocal('emeraldAdminCategories', []);
-                    const index = local.findIndex(c => String(c.id || c.name) === String(editingCategoryId));
-                    if (index > -1) local[index] = { ...local[index], name, display_order: displayOrder };
-                    writeLocal('emeraldAdminCategories', local);
-                }
+                await updateRow('categories', editingCategoryId, { name, display_order, sort_order: displayOrder });
                 showToast('Category updated.');
             } else {
-                if (isSupabaseConfigured()) {
-                    await insertRow('categories', { name, display_order, sort_order: displayOrder });
-                } else {
-                    const local = readLocal('emeraldAdminCategories', []);
-                    local.push({ id: null, name, display_order: displayOrder });
-                    writeLocal('emeraldAdminCategories', local);
-                }
+                await insertRow('categories', { name, display_order, sort_order: displayOrder });
                 showToast('Category added.');
             }
             modalCloseGuard = null;
@@ -675,7 +639,7 @@ async function getAdminPromotions() {
     } catch (error) {
         showToast(`Could not load promotions: ${error.message}`, 'error');
     }
-    return readLocal('emeraldAdminPromotions', []);
+    return [];
 }
 
 function formatPromoDates(row) {
@@ -746,8 +710,6 @@ async function renderPromotions() {
             if (!confirm('Delete this promotion?')) return;
             try {
                 await deleteRow('promotions', btn.dataset.deletePromotion);
-                const local = readLocal('emeraldAdminPromotions', []);
-                writeLocal('emeraldAdminPromotions', local.filter(p => String(p.id) !== btn.dataset.deletePromotion));
                 showToast('Promotion deleted.');
                 renderPromotions();
             } catch (error) {
@@ -765,13 +727,8 @@ async function goLive(promotionId) {
     try {
         const rows = await fetchRows('promotions', { eq: { column: 'id', value: promotionId } });
         row = rows && rows[0];
-        if (!row) {
-            const local = readLocal('emeraldAdminPromotions', []);
-            row = local.find(p => String(p.id) === String(promotionId));
-        }
     } catch {
-        const local = readLocal('emeraldAdminPromotions', []);
-        row = local.find(p => String(p.id) === String(promotionId));
+        // Could not fetch promotion
     }
     if (!row) return;
 
@@ -923,23 +880,10 @@ function buildPromotionForm(row = {}) {
 
         try {
             if (editingPromotionId) {
-                if (isSupabaseConfigured()) {
-                    await updateRow('promotions', editingPromotionId, payload);
-                } else {
-                    const local = readLocal('emeraldAdminPromotions', []);
-                    const index = local.findIndex(p => String(p.id) === String(editingPromotionId));
-                    if (index > -1) local[index] = { ...local[index], ...payload };
-                    writeLocal('emeraldAdminPromotions', local);
-                }
+                await updateRow('promotions', editingPromotionId, payload);
                 showToast('Promotion updated.');
             } else {
-                if (isSupabaseConfigured()) {
-                    await insertRow('promotions', { ...payload, active: true, is_live: false });
-                } else {
-                    const local = readLocal('emeraldAdminPromotions', []);
-                    local.unshift({ ...payload, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, is_live: false });
-                    writeLocal('emeraldAdminPromotions', local);
-                }
+                await insertRow('promotions', { ...payload, active: true, is_live: false });
                 showToast('Promotion added.');
             }
             modalCloseGuard = null;
@@ -967,7 +911,7 @@ async function renderSubscribers(filter = '') {
         showToast(`Could not load subscribers: ${error.message}`, 'error');
         rows = null;
     }
-    if (!rows || !rows.length) rows = readLocal('emeraldSubscribers', []);
+    if (!rows) rows = [];
 
     const query = (filter || '').toLowerCase();
     const filtered = rows.filter(row => !query || String(row.email || '').toLowerCase().includes(query));
@@ -998,8 +942,6 @@ async function renderSubscribers(filter = '') {
             if (!confirm('Remove this subscriber? They will no longer receive promo emails.')) return;
             try {
                 await removeSubscriber(btn.dataset.deleteSubscriber);
-                const local = readLocal('emeraldSubscribers', []);
-                writeLocal('emeraldSubscribers', local.filter(s => String(s.id || s.email) !== btn.dataset.deleteSubscriber));
                 showToast('Subscriber removed.');
                 renderSubscribers(subscriberSearch?.value || '');
             } catch (error) {
@@ -1013,22 +955,19 @@ if (subscriberSearch) {
     subscriberSearch.addEventListener('input', () => renderSubscribers(subscriberSearch.value));
 }
 
-document.getElementById('export-subscribers')?.addEventListener('click', () => {
-    const rows = readLocal('emeraldSubscribers', []);
-    Promise.resolve(getSubscribers()).then(supabaseRows => {
-        const all = (supabaseRows && supabaseRows.length) ? supabaseRows : rows;
-        const csvRows = all.map(row => ({
+document.getElementById('export-subscribers')?.addEventListener('click', async () => {
+    try {
+        const rows = await getSubscribers() || [];
+        const csvRows = rows.map(row => ({
             email: row.email,
             status: row.status || 'active',
             subscribed_at: row.subscribed_at || row.created_at || ''
         }));
         downloadBlob('emerald-cuisine-subscribers.csv', toCSV(csvRows), 'text/csv');
         showToast(`Exported ${csvRows.length} subscriber(s).`);
-    }).catch(() => {
-        const csvRows = rows.map(row => ({ email: row.email, status: row.status || 'active', subscribed_at: row.subscribed_at || row.created_at || '' }));
-        downloadBlob('emerald-cuisine-subscribers.csv', toCSV(csvRows), 'text/csv');
-        showToast(`Exported ${csvRows.length} subscriber(s).`);
-    });
+    } catch (error) {
+        showToast(`Could not export subscribers: ${error.message}`, 'error');
+    }
 });
 
 const customersList = document.getElementById('customers-list');
@@ -1041,24 +980,18 @@ async function getAdminCustomers() {
     } catch (error) {
         showToast(`Could not load customers: ${error.message}`, 'error');
     }
-    return readLocal('emeraldUsers', []);
+    return [];
 }
 
 async function getOrdersByEmail(email) {
     const normalized = String(email || '').trim().toLowerCase();
-    if (isSupabaseConfigured()) {
-        try {
-            const rows = await fetchRowsIn('orders', 'customer_email', [normalized, String(email || '')]);
-            if (rows && rows.length) return rows;
-        } catch {
-            // fall through to local orders
-        }
+    try {
+        const rows = await fetchRowsIn('orders', 'customer_email', [normalized, String(email || '')]);
+        if (rows && rows.length) return rows;
+    } catch {
+        // Could not fetch orders
     }
-    const local = readLocal('emeraldOrders', {});
-    return Object.values(local).filter(order =>
-        String(order.email || '').trim().toLowerCase() === normalized ||
-        String(order.customer_email || '').trim().toLowerCase() === normalized
-    );
+    return [];
 }
 
 async function renderCustomers(filter = '') {
@@ -1072,9 +1005,7 @@ async function renderCustomers(filter = '') {
 
     let ordersByEmail = {};
     try {
-        const orderRows = isSupabaseConfigured()
-            ? await fetchRows('orders', { order: 'created_at', ascending: false, limit: 2000 })
-            : Object.values(readLocal('emeraldOrders', {}));
+        const orderRows = await fetchRows('orders', { order: 'created_at', ascending: false, limit: 2000 });
         (orderRows || []).forEach(order => {
             const email = String(order.customer_email || order.email || '').trim().toLowerCase();
             if (!email) return;
@@ -1130,8 +1061,6 @@ async function renderCustomers(filter = '') {
             const found = customers.find(c => String(c.id || c.email) === btn.dataset.deleteCustomer);
             try {
                 if (found && found.id) await deleteRow('customers', found.id);
-                const local = readLocal('emeraldUsers', []);
-                writeLocal('emeraldUsers', local.filter(c => String(c.id || c.email) !== btn.dataset.deleteCustomer));
                 showToast('Customer deleted.');
                 renderCustomers(customerSearch?.value || '');
             } catch (error) {
@@ -1208,31 +1137,24 @@ async function loadSetting(key, fallback = '') {
         const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
         if (rows && rows.length) return rows[0].value;
     } catch {
-        // fall through to local
+        // Could not fetch setting
     }
-    return readLocal('emeraldSettings', {})[key] ?? fallback;
+    return fallback;
 }
 
 async function saveSetting(key, value) {
-    try {
-        const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
-        if (rows && rows.length) {
-            await updateRow('settings', rows[0].id, { value });
-        } else if (rows && !rows.length) {
-            await insertRow('settings', { id: key, value });
-        }
-    } catch {
-        // Supabase unavailable — demo mode uses localStorage below.
+    const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
+    if (rows && rows.length) {
+        await updateRow('settings', rows[0].id, { value });
+    } else if (rows && !rows.length) {
+        await insertRow('settings', { id: key, value });
     }
-    const settings = readLocal('emeraldSettings', {});
-    settings[key] = value;
-    writeLocal('emeraldSettings', settings);
 }
 
-function buildHoursGrid() {
+function buildHoursGrid(hoursData) {
     const grid = document.getElementById('hours-grid');
     if (!grid) return;
-    const hours = { ...DEFAULT_HOURS, ...(readLocal('emeraldHours', {}) || {}) };
+    const hours = { ...DEFAULT_HOURS, ...(hoursData || {}) };
     grid.innerHTML = DAYS.map(day => {
         const value = hours[day] || DEFAULT_HOURS[day];
         return `
@@ -1286,15 +1208,16 @@ async function renderSettings() {
         input.checked = value === 'true' || value === true || value === '1' || value === 'on';
     }
 
+    let hoursData = {};
     const hoursRaw = await loadSetting('hours', '');
     if (hoursRaw) {
         try {
-            writeLocal('emeraldHours', JSON.parse(hoursRaw));
+            hoursData = JSON.parse(hoursRaw);
         } catch {
             // ignore malformed JSON
         }
     }
-    buildHoursGrid();
+    buildHoursGrid(hoursData);
 
     // Logo preview
     const logoUrl = await loadSetting('logo_url', '');
@@ -1405,7 +1328,6 @@ settingsForm?.addEventListener('submit', async event => {
             };
         });
         await saveSetting('hours', JSON.stringify(hours));
-        writeLocal('emeraldHours', hours);
 
         // Upload logo (if a new one was chosen).
         if (window.emeraldLogoUpload) {
@@ -1427,13 +1349,15 @@ document.getElementById('export-all-data')?.addEventListener('click', async () =
     const message = document.getElementById('data-export-message');
     if (message) message.textContent = 'Preparing export&hellip;';
     try {
-        const [menu, categories, subscribers, customers, settings] = await Promise.all([
+        const [menu, categories, subscribers, customers, settingsRows] = await Promise.all([
             getAdminItems(),
             getAdminCategories(),
-            (async () => (await getSubscribers()) || readLocal('emeraldSubscribers', []))(),
+            (async () => (await getSubscribers()) || [])(),
             getAdminCustomers(),
-            readLocal('emeraldSettings', {})
+            fetchRows('settings')
         ]);
+        const settings = {};
+        (settingsRows || []).forEach(row => { settings[row.id] = row.value; });
         const payload = {
             exported_at: new Date().toISOString(),
             menu,
@@ -1462,7 +1386,7 @@ document.getElementById('export-subscribers-data')?.addEventListener('click', as
     }
     try {
         let rows = await getSubscribers();
-        if (!rows || !rows.length) rows = readLocal('emeraldSubscribers', []);
+        // removed localStorage fallback
         const csvRows = (rows || []).map(row => ({
             email: row.email,
             status: row.status || 'active',
