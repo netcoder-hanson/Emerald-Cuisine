@@ -162,6 +162,18 @@ async function load() {
 
     if (!orderNumber) {
         heroOrder.textContent = 'Please provide an order number to track.';
+        const lookupForm = document.getElementById('track-lookup-form');
+        if (lookupForm) {
+            lookupForm.hidden = false;
+            lookupForm.addEventListener('submit', event => {
+                event.preventDefault();
+                const input = document.getElementById('track-lookup-input');
+                const value = input?.value.trim();
+                if (value) {
+                    window.location.href = `track.html?order=${encodeURIComponent(value)}`;
+                }
+            });
+        }
         return;
     }
 

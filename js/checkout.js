@@ -29,6 +29,12 @@ function prefillCheckout(user) {
     if (emailInput && !emailInput.value.trim()) {
         emailInput.value = user.email || '';
     }
+    if (user.useAsDeliveryAddress) {
+        const addressInput = checkoutForm.querySelector('input[name="address"]');
+        if (addressInput && !addressInput.value.trim()) {
+            addressInput.value = user.address || '';
+        }
+    }
 }
 
 const summaryDelivery = document.getElementById('summary-delivery');

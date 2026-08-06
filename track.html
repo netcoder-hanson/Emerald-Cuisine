@@ -61,7 +61,11 @@
         <section class="track-section reveal">
             <div class="container">
                 <div class="track-card" id="track-card">
-                    <p class="menu-empty">We could not find that order. Please check your order number.</p>
+                    <form id="track-lookup-form" class="track-lookup-form" hidden>
+                        <label class="screen-reader-text" for="track-lookup-input">Order number</label>
+                        <input id="track-lookup-input" type="text" placeholder="Enter order number e.g. EBF1234" required>
+                        <button type="submit" class="btn btn-primary">Track Order</button>
+                    </form>
                 </div>
             </div>
         </section>

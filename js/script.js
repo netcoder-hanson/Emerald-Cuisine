@@ -28,7 +28,6 @@ const navOverlay = document.querySelector('.nav-overlay');
 const reserveTriggers = document.querySelectorAll('.reserve-trigger');
 const modalOverlay = document.querySelector('.modal-overlay');
 const reservationModal = document.querySelector('.reservation-modal');
-const modalCloses = document.querySelectorAll('.modal-close');
 const reservationForm = document.querySelector('.reservation-form');
 const lightbox = document.querySelector('.lightbox');
 const lightboxClose = document.querySelector('.lightbox-close');
@@ -186,9 +185,10 @@ reserveTriggers.forEach(button => {
     button.addEventListener('click', openModal);
 });
 
-modalCloses.forEach(button => {
-    button.addEventListener('click', closeModal);
-});
+const reservationCancel = reservationModal?.querySelector('.modal-actions .btn-danger');
+if (reservationCancel) {
+    reservationCancel.addEventListener('click', closeModal);
+}
 
 if (modalOverlay) {
     modalOverlay.addEventListener('click', closeModal);

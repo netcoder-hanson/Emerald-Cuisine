@@ -5,6 +5,84 @@ import { openAuthModal } from './utils/auth-ui.js';
 
 let menuItems = [];
 
+const imageDictionary = [
+    {
+        keywords: ['jollof', 'rice'],
+        src: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&w=900&q=80',
+        alt: 'Jollof rice with grilled chicken'
+    },
+    {
+        keywords: ['full english'],
+        src: 'images/categories/Eggs, sausage, beans, grilled tomato and toast.jpg',
+        alt: 'Full English breakfast with eggs and sausage'
+    },
+    {
+        keywords: ['custard', 'akamu', 'akara', 'breakfast', 'eggs'],
+        src: 'images/categories/akara & pap.jpg',
+        alt: 'Akara and pap, a classic Nigerian breakfast'
+    },
+    {
+        keywords: ['coconut rice', 'egusi', 'ofada', 'nigerian', 'plantain'],
+        src: 'https://images.unsplash.com/photo-1551782450-a2132b4ba21d?auto=format&w=900&q=80',
+        alt: 'Nigerian coconut rice with chicken and plantain'
+    },
+    {
+        keywords: ['alfredo', 'pasta', 'spaghetti', 'noodles', 'yakisoba', 'chow mein'],
+        src: 'https://images.unsplash.com/photo-1543353071-873f17a7a088?auto=format&w=900&q=80',
+        alt: 'Creamy pasta dish with chicken'
+    },
+    {
+        keywords: ['pepper soup', 'catfish', 'soup', 'broth'],
+        src: 'https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&w=900&q=80',
+        alt: 'Spicy pepper soup bowl'
+    },
+    {
+        keywords: ['suya', 'chicken', 'grilled', 'peppered', 'steak'],
+        src: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80',
+        alt: 'Grilled chicken or steak with sides'
+    },
+    {
+        keywords: ['salad', 'avocado', 'turkey'],
+        src: 'https://images.unsplash.com/photo-1478145046317-39f10e56b5e9?auto=format&w=900&q=80',
+        alt: 'Fresh salad bowl with avocado'
+    },
+    {
+        keywords: ['brownie', 'dessert', 'cake', 'ice cream', 'parfait'],
+        src: 'https://images.unsplash.com/photo-1525755662778-989d0524087e?auto=format&w=900&q=80',
+        alt: 'Chocolate brownie dessert'
+    },
+    {
+        keywords: ['juice', 'cocktail', 'drink', 'ginger', 'zobo', 'mocktail', 'tea'],
+        src: 'https://images.unsplash.com/photo-1510627498534-cf7e9002facc?auto=format&w=900&q=80',
+        alt: 'Refreshing beverage with ginger and mint'
+    },
+    {
+        keywords: ['titus fish', 'side', 'coleslaw', 'fries'],
+        src: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&w=900&q=80',
+        alt: 'Side dish with fish and garnish'
+    }
+];
+
+function getImageForItem(item) {
+    const text = `${item.name} ${item.description}`.toLowerCase();
+    const match = imageDictionary.find(entry => entry.keywords.some(keyword => text.includes(keyword)));
+    return match || { src: item.image, alt: item.name };
+}
+
+const orderGrid = document.querySelector('.order-menu-grid');
+const cartItemsContainer = document.querySelector('.cart-items');
+const subtotalElement = document.getElementById('cart-subtotal');
+const deliveryElement = document.getElementById('cart-delivery');
+const vatElement = document.getElementById('cart-vat');
+const totalElement = document.getElementById('cart-total');
+const searchInput = document.getElementById('menu-search');
+const categorySelect = document.getElementById('category-select');
+const cartOverlay = document.getElementById('cartOverlay');
+const cartPanel = document.getElementById('cart');
+const cartCloseButton = document.querySelector('.cart-close');
+const cartTriggerButton = document.querySelector('.cart-trigger');
+let lastCartFocused = null;
+
 function isMobileCartModal() {
     return window.matchMedia('(max-width: 1024px)').matches;
 }

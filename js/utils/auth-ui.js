@@ -1,4 +1,4 @@
-import { getCurrentUser, restoreSession, loginOrRegister, logoutUser } from './auth.js';
+import { getCurrentUser, restoreSession, loginOrRegister, logoutUser, findExistingByEmail } from './auth.js';
 import CONFIG from '../config.js';
 import { isAdminCredentials, getAdminCredentials, isAdminIdentifier } from './admin.js';
 
@@ -58,22 +58,15 @@ function buildModal() {
     modalRoot.setAttribute('aria-hidden', 'true');
     modalRoot.innerHTML = `
         <div class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
-            <button type="button" class="modal-close auth-modal-close" aria-label="Close sign in">
-                <i data-lucide="x" aria-hidden="true"></i>
-            </button>
             <div class="section-header">
                 <span class="eyebrow">Welcome</span>
-                <h3 id="auth-modal-title">Sign in or create an account</h3>
+                <h3 id="auth-modal-title">Sign in</h3>
                 <p>Sign in to speed up checkout and keep track of your orders.</p>
             </div>
             <form class="auth-modal-form" novalidate>
-                <label class="auth-field auth-field-name">
-                    Full name
-                    <input type="text" name="name" placeholder="Your full name" autocomplete="name">
-                </label>
                 <label class="auth-field">
-                    Email address
-                    <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+                    Username
+                    <input type="text" name="username" required autocomplete="username">
                 </label>
                 <label class="auth-field">
                     Password
@@ -86,8 +79,9 @@ function buildModal() {
                 <p class="form-message auth-modal-message" aria-live="polite"></p>
                 <div class="auth-modal-actions">
                     <button type="submit" class="btn btn-primary btn-full">Sign in</button>
-                    <button type="button" class="btn btn-secondary btn-full auth-modal-close">Cancel</button>
+                    <button type="button" class="btn btn-danger btn-full">Cancel</button>
                 </div>
+                <p class="auth-switch">Don't have an account? <button type="button" class="link-button" id="auth-open-signup">Sign up</button></p>
                 <p class="auth-admin-hint">Owner? Sign in with <strong>admin</strong> + your admin password to open the dashboard.</p>
             </form>
         </div>
@@ -100,8 +94,13 @@ function buildModal() {
     overlay.addEventListener('click', event => {
         if (event.target === overlay) closeModal();
     });
-    modalRoot.querySelector('.auth-modal-close').addEventListener('click', closeModal);
+    modalRoot.querySelector('.btn-danger').addEventListener('click', closeModal);
     modalRoot.querySelector('.auth-modal-form').addEventListener('submit', onSubmit);
+    modalRoot.querySelector('#auth-open-signup').addEventListener('click', () => {
+        const cb = pendingAuthCallback;
+        closeModal();
+        openSignupModal(cb);
+    });
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && modalRoot?.classList.contains('active')) closeModal();
@@ -125,14 +124,12 @@ export function openAuthModal(options = {}) {
     modal.classList.add('active');
     modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
-    const nameInput = modal.querySelector('input[name="name"]');
-    const emailInput = modal.querySelector('input[name="email"]');
+    const usernameInput = modal.querySelector('input[name="username"]');
     const currentUser = getCurrentUser();
-    if (currentUser) {
-        if (nameInput) nameInput.value = currentUser.name || '';
-        if (emailInput) emailInput.value = currentUser.email || '';
+    if (currentUser && usernameInput) {
+        usernameInput.value = currentUser.username || '';
     }
-    (nameInput || emailInput)?.focus();
+    usernameInput?.focus();
 }
 
 function closeModal() {
@@ -157,17 +154,17 @@ async function onSubmit(event) {
     message.textContent = '';
     message.classList.remove('error');
 
-    // Admin sign-in: a matching admin username OR email + the admin
-    // password opens the dashboard.
-    const enteredIdentifier = String(data.get('email') || '').trim().toLowerCase();
+    // Admin sign-in: a matching admin username + the admin password
+    // opens the dashboard.
+    const enteredIdentifier = String(data.get('username') || '').trim().toLowerCase();
     if (await isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
         sessionStorage.setItem('emeraldAdmin', '1');
         window.location.href = 'admin.html';
         return;
     }
     const adminCreds = getAdminCredentials();
-    const adminEmail = String(adminCreds.email || CONFIG.adminEmail || '').trim().toLowerCase();
-    if (adminEmail && enteredIdentifier === adminEmail) {
+    const adminUsername = String(adminCreds.username || CONFIG.adminUsername || '').trim().toLowerCase();
+    if (adminUsername && enteredIdentifier === adminUsername) {
         message.textContent = 'Incorrect admin password.';
         message.classList.add('error');
         return;
@@ -179,19 +176,11 @@ async function onSubmit(event) {
             submitButton.textContent = 'Signing in...';
         }
         const user = await loginOrRegister({
-            name: data.get('name'),
-            email: data.get('email'),
+            username: data.get('username'),
             password: data.get('password'),
             rememberMe: data.get('rememberMe') === 'true'
         });
-        document.dispatchEvent(new CustomEvent('auth:signed-in', { detail: user || getCurrentUser() }));
-        const cb = pendingAuthCallback;
-        closeModal();
-        renderAuthSlot();
-        renderSidebarAuthSlot();
-        if (typeof cb === 'function') {
-            cb(user || getCurrentUser());
-        }
+        completeAuthSuccess(user);
     } catch (error) {
         message.textContent = error.message || 'Could not sign in. Please try again.';
         message.classList.add('error');
@@ -200,6 +189,205 @@ async function onSubmit(event) {
             submitButton.disabled = false;
             submitButton.textContent = 'Sign in';
         }
+    }
+}
+
+// Shared post-auth handling: announce, close both modals, re-render the
+// header slots, and run any callback that opened the modal.
+function completeAuthSuccess(user) {
+    document.dispatchEvent(new CustomEvent('auth:signed-in', { detail: user || getCurrentUser() }));
+    const cb = pendingAuthCallback;
+    closeModal();
+    closeSignupModal();
+    renderAuthSlot();
+    renderSidebarAuthSlot();
+    if (typeof cb === 'function') {
+        cb(user || getCurrentUser());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sign-up modal: mirrors the sign-in modal's structure, focus handling and
+// close pattern. Kept separate from the sign-in form so each flow stays
+// single-purpose.
+// ---------------------------------------------------------------------------
+
+let signupModalRoot = null;
+let signupConflictMode = null;
+
+function buildSignupModal() {
+    if (signupModalRoot) return signupModalRoot;
+
+    signupModalRoot = document.createElement('div');
+    signupModalRoot.className = 'auth-modal-root';
+    signupModalRoot.setAttribute('aria-hidden', 'true');
+    signupModalRoot.innerHTML = `
+        <div class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-signup-title">
+            <div class="section-header">
+                <span class="eyebrow">Welcome</span>
+                <h3 id="auth-signup-title">Create your account</h3>
+                <p>Sign up to speed up checkout and keep track of your orders.</p>
+            </div>
+            <form class="auth-modal-form" novalidate>
+                <label class="auth-field">
+                    Username
+                    <input type="text" name="username" required autocomplete="username">
+                </label>
+                <label class="auth-field">
+                    Email address
+                    <input type="email" name="email" required autocomplete="email">
+                </label>
+                <label class="auth-field">
+                    Address
+                    <input type="text" name="address" placeholder="Delivery address" autocomplete="street-address">
+                </label>
+                <label class="checkbox-row auth-remember">
+                    <input type="checkbox" name="useAsDeliveryAddress" value="true" checked>
+                    <span>Use this as my delivery address</span>
+                </label>
+                <label class="auth-field">
+                    Password
+                    <input type="password" name="password" required autocomplete="new-password">
+                </label>
+                <p class="form-message auth-modal-message" aria-live="polite"></p>
+                <div class="auth-conflict hidden">
+                    <p>An account with this email already exists. Update it with these details, or replace it entirely.</p>
+                    <div class="auth-conflict-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="auth-conflict-update">Update existing account</button>
+                        <button type="button" class="btn btn-danger btn-sm" id="auth-conflict-replace">Replace account</button>
+                    </div>
+                </div>
+                <div class="auth-modal-actions">
+                    <button type="submit" class="btn btn-primary btn-full">Sign up</button>
+                    <button type="button" class="btn btn-danger btn-full" id="auth-signup-cancel">Cancel</button>
+                </div>
+                <p class="auth-switch">Already have an account? <button type="button" class="link-button" id="auth-open-signin">Sign in</button></p>
+            </form>
+        </div>
+    `;
+
+    document.body.appendChild(signupModalRoot);
+    refreshIcons();
+
+    const overlay = signupModalRoot;
+    overlay.addEventListener('click', event => {
+        if (event.target === overlay) closeSignupModal();
+    });
+    signupModalRoot.querySelector('#auth-signup-cancel').addEventListener('click', closeSignupModal);
+    signupModalRoot.querySelector('#auth-open-signin').addEventListener('click', () => {
+        const cb = pendingAuthCallback;
+        closeSignupModal();
+        openAuthModal(cb);
+    });
+    signupModalRoot.querySelector('.auth-modal-form').addEventListener('submit', onSubmitSignup);
+    signupModalRoot.querySelector('#auth-conflict-update').addEventListener('click', () => {
+        signupConflictMode = 'update';
+        signupModalRoot.querySelector('.auth-conflict').classList.add('hidden');
+        signupModalRoot.querySelector('.auth-modal-form').requestSubmit();
+    });
+    signupModalRoot.querySelector('#auth-conflict-replace').addEventListener('click', () => {
+        signupConflictMode = 'replace';
+        signupModalRoot.querySelector('.auth-conflict').classList.add('hidden');
+        signupModalRoot.querySelector('.auth-modal-form').requestSubmit();
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && signupModalRoot?.classList.contains('active')) closeSignupModal();
+    });
+
+    return signupModalRoot;
+}
+
+export function openSignupModal(options = {}) {
+    if (typeof options === 'function') {
+        pendingAuthCallback = options;
+    } else if (options && typeof options.onSuccess === 'function') {
+        pendingAuthCallback = options.onSuccess;
+    } else {
+        pendingAuthCallback = null;
+    }
+    const modal = buildSignupModal();
+    lastFocusedElement = document.activeElement;
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    modal.querySelector('input[name="username"]')?.focus();
+}
+
+function closeSignupModal() {
+    if (!signupModalRoot) return;
+    pendingAuthCallback = null;
+    signupConflictMode = null;
+    signupModalRoot.classList.remove('active');
+    signupModalRoot.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    const conflict = signupModalRoot.querySelector('.auth-conflict');
+    if (conflict) conflict.classList.add('hidden');
+    const message = signupModalRoot.querySelector('.auth-modal-message');
+    if (message) {
+        message.textContent = '';
+        message.classList.remove('error');
+    }
+    if (lastFocusedElement instanceof HTMLElement) {
+        lastFocusedElement.focus();
+        lastFocusedElement = null;
+    }
+}
+
+async function onSubmitSignup(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const message = form.querySelector('.auth-modal-message');
+    const data = new FormData(form);
+    const submitButton = form.querySelector('button[type="submit"]');
+
+    const username = String(data.get('username') || '').trim();
+    const email = String(data.get('email') || '').trim();
+    const address = String(data.get('address') || '').trim();
+    const useAsDeliveryAddress = data.get('useAsDeliveryAddress') === 'true';
+    const password = String(data.get('password') || '');
+
+    message.textContent = '';
+    message.classList.remove('error');
+
+    if (!username || !email || !password) {
+        message.textContent = 'Please fill in your username, email and password.';
+        message.classList.add('error');
+        return;
+    }
+
+    if (!signupConflictMode) {
+        const existing = await findExistingByEmail(email);
+        if (existing) {
+            form.querySelector('.auth-conflict')?.classList.remove('hidden');
+            return;
+        }
+    }
+
+    try {
+        if (submitButton) {
+            submitButton.disabled = true;
+            submitButton.textContent = 'Creating account...';
+        }
+        const user = await loginOrRegister({
+            username,
+            email,
+            address,
+            useAsDeliveryAddress,
+            password,
+            rememberMe: true,
+            conflictMode: signupConflictMode
+        });
+        completeAuthSuccess(user);
+    } catch (error) {
+        message.textContent = error.message || 'Could not create your account. Please try again.';
+        message.classList.add('error');
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Sign up';
+        }
+        signupConflictMode = null;
     }
 }
 
