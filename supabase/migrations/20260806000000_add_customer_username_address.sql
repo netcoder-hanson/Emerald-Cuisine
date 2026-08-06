@@ -3,6 +3,6 @@
 -- multiple NULLs) until they are claimed via the sign-up flow.
 
 alter table public.customers
-    add column username text unique,
-    add column address text,
-    add column use_as_delivery_address boolean not null default false;
+    add column if not exists username text unique,
+    add column if not exists address text,
+    add column if not exists use_as_delivery_address boolean not null default false;
