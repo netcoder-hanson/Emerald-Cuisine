@@ -58,6 +58,9 @@ function buildModal() {
     modalRoot.setAttribute('aria-hidden', 'true');
     modalRoot.innerHTML = `
         <div class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+            <button type="button" class="modal-close auth-modal-close" aria-label="Close sign in">
+                <i data-lucide="x" aria-hidden="true"></i>
+            </button>
             <div class="section-header">
                 <span class="eyebrow">Welcome</span>
                 <h3 id="auth-modal-title">Sign in</h3>

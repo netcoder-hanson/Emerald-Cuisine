@@ -2988,6 +2988,36 @@ section {
     }
 }
 
+.admin-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+    .admin-sidebar-logo {
+        font-size: 0.75rem;
+        text-align: center;
+        padding: 0 2px;
+    }
+
+    .admin-sidebar-logo span {
+        display: none;
+    }
+
+    .admin-tab-label {
+        display: none;
+    }
+
+    .admin-sidebar-item,
+    .admin-tab {
+        justify-content: center;
+        padding: 10px 0;
+    }
+}
+
 /* ============ Main site sidebar navigation ============ */
 
 /* ---- Desktop: persistent left sidebar ---- */
