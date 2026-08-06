@@ -29,11 +29,11 @@ function showDashboard() {
 if (isLoggedIn()) {
     showDashboard();
 } else {
-    loginForm.addEventListener('submit', event => {
+    loginForm.addEventListener('submit', async event => {
         event.preventDefault();
         const username = loginForm.querySelector('input[name="username"]').value;
         const password = loginForm.querySelector('input[name="password"]').value;
-        if (isAdminCredentials(username, password)) {
+        if (await isAdminCredentials(username, password)) {
             sessionStorage.setItem('emeraldAdmin', '1');
             showDashboard();
         } else {

@@ -1,7 +1,7 @@
 import { getCart, saveCart, formatPrice, calculateTotals, getCartItemCount, escapeHtml, getCartItemDetails, saveCartItemDetails, removeCartItemDetails } from './utils/cart.js';
 import { getMenuItems } from './utils/menu.js';
-import { getCurrentUser, loginOrRegister } from './utils/auth.js';
-import { isAdminCredentials } from './utils/admin.js';
+import { getCurrentUser } from './utils/auth.js';
+import { openAuthModal } from './utils/auth-ui.js';
 
 let menuItems = [];
 
@@ -82,109 +82,6 @@ const cartPanel = document.getElementById('cart');
 const cartCloseButton = document.querySelector('.cart-close');
 const cartTriggerButton = document.querySelector('.cart-trigger');
 let lastCartFocused = null;
-
-function buildAuthGate() {
-    const existingGate = document.getElementById('checkout-auth-gate');
-    if (existingGate) return existingGate;
-
-    const gate = document.createElement('div');
-    gate.id = 'checkout-auth-gate';
-    gate.className = 'modal-overlay active';
-    gate.setAttribute('aria-hidden', 'true');
-    gate.innerHTML = `
-        <div class="checkout-auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-gate-title">
-            <div class="section-header">
-                <span class="eyebrow">Account required</span>
-                <h3 id="auth-gate-title">Continue to checkout</h3>
-            </div>
-            <p class="auth-gate-copy">Please sign in or create an account to continue to checkout.</p>
-            <form id="checkout-auth-form" class="checkout-auth-form">
-                <label>
-                    Full name
-                    <input type="text" name="name" placeholder="Your full name">
-                </label>
-                <label>
-                    Email address
-                    <input type="email" name="email" placeholder="you@example.com" required>
-                </label>
-                <label>
-                    Password
-                    <input type="password" name="password" placeholder="Choose a password" required>
-                </label>
-                <label class="checkbox-row">
-                    <input type="checkbox" name="rememberMe" value="true">
-                    Keep me signed in
-                </label>
-                <div class="auth-gate-actions">
-                    <button type="submit" class="btn btn-primary btn-full">Continue</button>
-                    <button type="button" id="close-auth-gate" class="btn btn-secondary btn-full">Cancel</button>
-                </div>
-                <p id="auth-error" class="form-message" aria-live="polite"></p>
-            </form>
-        </div>
-    `;
-
-    document.body.appendChild(gate);
-    return gate;
-}
-
-function openAuthGate() {
-    const gate = buildAuthGate();
-    gate.style.display = 'flex';
-    gate.setAttribute('aria-hidden', 'false');
-    gate.querySelector('input[name="email"]')?.focus();
-}
-
-function closeAuthGate() {
-    const gate = document.getElementById('checkout-auth-gate');
-    if (!gate) return;
-    gate.style.display = 'none';
-    gate.setAttribute('aria-hidden', 'true');
-}
-
-function attachAuthGateEvents() {
-    const gate = document.getElementById('checkout-auth-gate');
-    if (!gate) return;
-
-    gate.querySelector('#close-auth-gate')?.addEventListener('click', closeAuthGate);
-
-    gate.querySelector('#checkout-auth-form')?.addEventListener('submit', async event => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const errorBox = document.getElementById('auth-error');
-        const data = new FormData(form);
-
-        if (errorBox) {
-            errorBox.textContent = '';
-            errorBox.classList.remove('error');
-        }
-
-        // Admin sign-in (username or email + admin password) opens the dashboard.
-        const enteredIdentifier = String(data.get('email') || '').trim().toLowerCase();
-        if (isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
-            sessionStorage.setItem('emeraldAdmin', '1');
-            closeAuthGate();
-            window.location.href = 'admin.html';
-            return;
-        }
-
-        try {
-            await loginOrRegister({
-                name: data.get('name'),
-                email: data.get('email'),
-                password: data.get('password'),
-                rememberMe: data.get('rememberMe') === 'true'
-            });
-            closeAuthGate();
-            window.location.href = 'checkout.html';
-        } catch (error) {
-            if (errorBox) {
-                errorBox.textContent = error.message;
-                errorBox.classList.add('error');
-            }
-        }
-    });
-}
 
 function isMobileCartModal() {
     return window.matchMedia('(max-width: 1024px)').matches;
@@ -328,7 +225,9 @@ function filterMenu() {
     const category = categorySelect?.value || 'all';
     const filtered = menuItems.filter(item => {
         const matchesCategory = category === 'all' || item.category === category;
-        const matchesQuery = item.name.toLowerCase().includes(query) || item.description.toLowerCase().includes(query);
+        const name = String(item.name || '').toLowerCase();
+        const description = String(item.description || '').toLowerCase();
+        const matchesQuery = name.includes(query) || description.includes(query);
         return matchesCategory && matchesQuery;
     });
     renderMenu(filtered);
@@ -386,8 +285,11 @@ if (checkoutButton) {
     checkoutButton.addEventListener('click', event => {
         if (!getCurrentUser()) {
             event.preventDefault();
-            openAuthGate();
-            attachAuthGateEvents();
+            openAuthModal({
+                onSuccess: () => {
+                    window.location.href = 'checkout.html';
+                }
+            });
         }
     });
 }
@@ -412,85 +314,11 @@ document.addEventListener('keydown', event => {
     }
 });
 
-const trackButton = document.getElementById('track-order-btn');
-const trackNumberInput = document.getElementById('track-order-number');
-const trackStatus = document.getElementById('track-status');
-
-const ORDER_STATUS = [
-    {
-        title: 'Order confirmed',
-        description: 'We received your order and have started preparing it.'
-    },
-    {
-        title: 'Preparing your meal',
-        description: 'Your chef is cooking your order with fresh, premium ingredients.'
-    },
-    {
-        title: 'Out for delivery',
-        description: 'A delivery partner is on the way to your address.'
-    },
-    {
-        title: 'Delivered',
-        description: 'Your order has been delivered. Enjoy your meal!'
-    }
-];
-
-function getOrderProgress(orderNumber) {
-    const seed = orderNumber.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    const stage = Math.min(ORDER_STATUS.length, Math.max(1, (seed % ORDER_STATUS.length) + 1));
-    const eta = 20 + (stage - 1) * 10;
-    const steps = ORDER_STATUS.map((status, index) => ({
-        ...status,
-        completed: index < stage
-    }));
-
-    return {
-        stage,
-        eta,
-        steps,
-        statusText: ORDER_STATUS[stage - 1].title
-    };
-}
-
-function renderOrderTracking(orderNumber) {
-    const { eta, steps, statusText } = getOrderProgress(orderNumber);
-    const statusItems = steps.map(step => `
-        <li class="${step.completed ? 'completed' : ''}">
-            <strong>${step.title}</strong>
-            <span>${step.description}</span>
-        </li>
-    `).join('');
-
-    trackStatus.innerHTML = `
-        <div class="track-summary">
-            <p>Order <strong>${orderNumber}</strong> is currently <strong>${statusText.toLowerCase()}</strong>.</p>
-            <p>${statusText === 'Delivered' ? 'Thank you for choosing Emerald’s Cuisine!' : `Estimated delivery in ${eta} minutes.`}</p>
-        </div>
-        <ul class="track-steps">${statusItems}</ul>
-    `;
-}
-   
-if (trackButton && trackNumberInput && trackStatus) {
-    trackButton.addEventListener('click', () => {
-        const orderNumber = trackNumberInput.value.trim().toUpperCase();
-        if (!orderNumber) {
-            trackStatus.innerHTML = '<p>Please enter a valid order number to track.</p>';
-            return;
-        }
-
-        if (!/^EBF\d{3,6}$/.test(orderNumber)) {
-            trackStatus.innerHTML = '<p>Please use an order number like <strong>EBF1234</strong>.</p>';
-            return;
-        }
-
-        renderOrderTracking(orderNumber);
-    });
-}
 
 if (orderGrid) {
     orderGrid.addEventListener('click', event => {
         const button = event.target.closest('.add-to-cart');
-        if (!button) return;
+        if (!button || !button.dataset.id) return;
         addToCart(button.dataset.id);
     });
 }

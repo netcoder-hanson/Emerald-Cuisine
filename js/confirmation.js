@@ -5,17 +5,30 @@ const params = new URLSearchParams(window.location.search);
 const orderNumber = params.get('order');
 
 async function render() {
-    const localOrder = JSON.parse(localStorage.getItem('emeraldLastOrder') || 'null');
+    let localOrder = null;
+    try {
+        localOrder = JSON.parse(localStorage.getItem('emeraldLastOrder') || 'null');
+    } catch {
+        localOrder = null;
+    }
     let order = null;
     if (orderNumber) {
-        order = (localOrder && localOrder.orderNumber === orderNumber)
-            ? localOrder
-            : await getOrder(orderNumber);
+        if (localOrder && localOrder.orderNumber === orderNumber) {
+            order = localOrder;
+        } else {
+            try {
+                order = await getOrder(orderNumber);
+            } catch (error) {
+                console.error('Failed to load order:', error);
+            }
+        }
     }
 
     if (!order) {
         const card = document.querySelector('.confirmation-card');
-        card.innerHTML = '<p class="menu-empty">We could not find that order. Please check your order number and try again.</p>';
+        if (card) {
+            card.innerHTML = '<p class="menu-empty">We could not find that order. Please check your order number and try again.</p>';
+        }
         return;
     }
 
@@ -30,7 +43,11 @@ async function render() {
 
     const itemsEl = document.getElementById('confirm-items');
     itemsEl.innerHTML = '';
-    order.items.forEach(item => {
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) {
+        itemsEl.innerHTML = '<p class="cart-empty">No items were recorded for this order.</p>';
+    }
+    items.forEach(item => {
         const row = document.createElement('div');
         row.className = 'summary-item';
         row.innerHTML = `<span>${escapeHtml(item.name)} x${item.quantity}</span><strong>${formatPrice(item.price * item.quantity)}</strong>`;

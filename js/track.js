@@ -22,6 +22,7 @@ function riderName(seed) {
 }
 
 function getStage(elapsedSeconds) {
+    if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) return 0;
     if (elapsedSeconds < STAGES[0].until) return 0;
     if (elapsedSeconds < STAGES[1].until) return 1;
     if (elapsedSeconds < STAGES[2].until) return 2;
@@ -32,6 +33,7 @@ async function geocode(address) {
     try {
         const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
         const response = await fetch(url);
+        if (!response.ok) return null;
         const data = await response.json();
         if (data && data.length) {
             return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
@@ -44,6 +46,8 @@ async function geocode(address) {
 let map = null;
 let riderMarker = null;
 let clientLatLng = null;
+let refreshTimer = null;
+let lastStage = -1;
 
 function createIcon(iconName, size = 34) {
     return L.divIcon({
@@ -105,6 +109,11 @@ function render(order, createdAtMs, restaurant) {
     const currentLabel = labels[stage];
     const etaRemaining = isPickup ? Math.max(0, 25 * 60 - elapsed) : Math.max(0, TOTAL_ETA - elapsed);
 
+    if (stage >= labels.length - 1 && refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+    }
+
     // Rider position along the route
     let progress = 0;
     if (!isPickup && stage === 2) {
@@ -153,15 +162,40 @@ async function load() {
 
     if (!orderNumber) {
         heroOrder.textContent = 'Please provide an order number to track.';
+        const lookupForm = document.getElementById('track-lookup-form');
+        if (lookupForm) {
+            lookupForm.hidden = false;
+            lookupForm.addEventListener('submit', event => {
+                event.preventDefault();
+                const input = document.getElementById('track-lookup-input');
+                const value = input?.value.trim();
+                if (value) {
+                    window.location.href = `track.html?order=${encodeURIComponent(value)}`;
+                }
+            });
+        }
         return;
     }
 
-    const localOrder = JSON.parse(localStorage.getItem('emeraldLastOrder') || 'null');
+    let localOrder = null;
+    try {
+        localOrder = JSON.parse(localStorage.getItem('emeraldLastOrder') || 'null');
+    } catch {
+        localOrder = null;
+    }
     let order = null;
     if (orderNumber) {
-        order = (localOrder && localOrder.orderNumber === orderNumber)
-            ? localOrder
-            : await getOrder(orderNumber);
+        if (localOrder && localOrder.orderNumber === orderNumber) {
+            order = localOrder;
+        } else {
+            try {
+                order = await getOrder(orderNumber);
+            } catch (error) {
+                console.error('Failed to load order:', error);
+                heroOrder.textContent = 'We could not load that order right now. Please try again.';
+                return;
+            }
+        }
     }
 
     if (!order) {
@@ -217,9 +251,20 @@ async function load() {
         </div>
     `;
 
-    initMap(restaurant, client);
+    if (typeof L === 'undefined') {
+        card.insertAdjacentHTML('beforeend', '<p class="menu-empty">The live map could not be loaded. Tracking status is still available below.</p>');
+    } else {
+        try {
+            initMap(restaurant, client);
+        } catch (error) {
+            console.error('Failed to initialise map:', error);
+            card.insertAdjacentHTML('beforeend', '<p class="menu-empty">The live map could not be loaded. Tracking status is still available below.</p>');
+        }
+    }
 
-    const createdAtMs = order.createdAt ? new Date(order.createdAt).getTime() : Date.now();
+    const createdAt = order.createdAt || order.created_at;
+    let createdAtMs = createdAt ? new Date(createdAt).getTime() : NaN;
+    if (!Number.isFinite(createdAtMs)) createdAtMs = Date.now();
 
     const reviewForm = document.getElementById('review-form');
     if (reviewForm) {
@@ -227,20 +272,38 @@ async function load() {
             event.preventDefault();
             const formData = new FormData(reviewForm);
             const message = reviewForm.querySelector('.form-message');
-            await addReview({
-                customer_name: formData.get('name').trim(),
-                rating: Number(formData.get('rating')),
-                comment: formData.get('comment').trim(),
-                order_number: order.orderNumber
-            });
-            message.textContent = 'Thank you for your review!';
-            message.style.color = 'var(--jade)';
-            reviewForm.reset();
+            const rating = Number(formData.get('rating'));
+            const name = String(formData.get('name') || '').trim();
+            const comment = String(formData.get('comment') || '').trim();
+            if (!name || !comment || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+                message.textContent = 'Please fill in your name, rating and review.';
+                message.style.color = 'var(--danger, #c0392b)';
+                return;
+            }
+            const submitButton = reviewForm.querySelector('button[type="submit"]');
+            if (submitButton) submitButton.disabled = true;
+            try {
+                await addReview({
+                    customer_name: name,
+                    rating,
+                    comment,
+                    order_number: order.orderNumber
+                });
+                message.textContent = 'Thank you for your review!';
+                message.style.color = 'var(--jade)';
+                reviewForm.reset();
+            } catch (error) {
+                console.error('Failed to submit review:', error);
+                message.textContent = 'We could not submit your review right now. Please try again.';
+                message.style.color = 'var(--danger, #c0392b)';
+            } finally {
+                if (submitButton) submitButton.disabled = false;
+            }
         });
     }
 
     render(order, createdAtMs, restaurant);
-    setInterval(() => render(order, createdAtMs, restaurant), 5000);
+    refreshTimer = setInterval(() => render(order, createdAtMs, restaurant), 5000);
 }
 
 load();

@@ -29,6 +29,12 @@ function prefillCheckout(user) {
     if (emailInput && !emailInput.value.trim()) {
         emailInput.value = user.email || '';
     }
+    if (user.useAsDeliveryAddress) {
+        const addressInput = checkoutForm.querySelector('input[name="address"]');
+        if (addressInput && !addressInput.value.trim()) {
+            addressInput.value = user.address || '';
+        }
+    }
 }
 
 const summaryDelivery = document.getElementById('summary-delivery');
@@ -82,7 +88,7 @@ if (checkoutForm) {
     checkoutForm.addEventListener('submit', async event => {
         event.preventDefault();
         const submitButton = checkoutForm.querySelector('button[type="submit"]');
-        const message = checkoutForm.querySelector('.form-message');
+        const message = checkoutForm.querySelector('.form-message') || document.createElement('p');
         message.textContent = '';
         message.classList.remove('error');
 
@@ -110,6 +116,7 @@ if (checkoutForm) {
         const { subtotal, vat, deliveryFee, total } = calculateTotals(items, deliveryType);
         const orderData = {
             orderNumber: `EBF${Date.now().toString().slice(-6)}`,
+            createdAt: new Date().toISOString(),
             estimatedTime: deliveryType === 'pickup' ? 'Ready in 20-30 mins' : 'Estimated delivery in 40-55 mins',
             fullName,
             phone,
@@ -129,6 +136,7 @@ if (checkoutForm) {
             submitButton.textContent = 'Placing your order...';
         }
 
+        let saved = false;
         try {
             await saveOrder(orderData);
         } catch {

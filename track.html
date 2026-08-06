@@ -19,28 +19,34 @@
                 <span>Emerald's</span>
                 <small>Cuisine</small>
             </a>
-            <nav class="primary-nav" aria-label="Main navigation">
-                <ul class="nav-links">
-                    <li><a href="index.html#home">Home</a></li>
-                    <li><a href="index.html#menu">Menu</a></li>
-                    <li><a href="index.html#about">About</a></li>
-                    <li><a href="index.html#reservations">Reservations</a></li>
-                    <li><a href="index.html#gallery">Gallery</a></li>
-                    <li><a href="index.html#contact">Contact</a></li>
-                    <li><a href="order.html" class="nav-cta">Order Now</a></li>
-                </ul>
-            </nav>
-            <div class="header-actions">
-                <div class="auth-slot"></div>
-                <a href="order.html" class="btn btn-secondary">Order Now</a>
-                <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </div>
+            <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </header>
+
+    <aside class="site-sidebar" aria-label="Main navigation">
+        <a href="index.html" class="site-sidebar-logo">Emerald's <span>Cuisine</span></a>
+        <nav class="site-sidebar-nav" aria-label="Primary">
+            <a href="index.html#home" class="site-sidebar-item"><i data-lucide="home" aria-hidden="true"></i><span>Home</span></a>
+            <a href="index.html#menu" class="site-sidebar-item"><i data-lucide="utensils" aria-hidden="true"></i><span>Menu</span></a>
+            <a href="index.html#about" class="site-sidebar-item"><i data-lucide="info" aria-hidden="true"></i><span>About</span></a>
+            <a href="index.html#reservations" class="site-sidebar-item"><i data-lucide="calendar-check" aria-hidden="true"></i><span>Reservations</span></a>
+            <a href="index.html#gallery" class="site-sidebar-item"><i data-lucide="image" aria-hidden="true"></i><span>Gallery</span></a>
+            <a href="index.html#contact" class="site-sidebar-item"><i data-lucide="mail" aria-hidden="true"></i><span>Contact</span></a>
+        </nav>
+        <a href="order.html" class="site-sidebar-cta nav-cta"><i data-lucide="shopping-bag" aria-hidden="true"></i> Order Now</a>
+        <div class="site-sidebar-actions">
+            <div class="auth-slot"></div>
+            <a href="order.html" class="btn btn-secondary">Order Now</a>
+        </div>
+        <div class="site-sidebar-footer">
+            <a href="track.html" class="site-sidebar-item"><i data-lucide="package" aria-hidden="true"></i><span>Track Order</span></a>
+        </div>
+    </aside>
+
     <div class="nav-overlay"></div>
 
     <main id="main-content">
@@ -55,7 +61,11 @@
         <section class="track-section reveal">
             <div class="container">
                 <div class="track-card" id="track-card">
-                    <p class="menu-empty">We could not find that order. Please check your order number.</p>
+                    <form id="track-lookup-form" class="track-lookup-form" hidden>
+                        <label class="screen-reader-text" for="track-lookup-input">Order number</label>
+                        <input id="track-lookup-input" type="text" placeholder="Enter order number e.g. EBF1234" required>
+                        <button type="submit" class="btn btn-primary">Track Order</button>
+                    </form>
                 </div>
             </div>
         </section>

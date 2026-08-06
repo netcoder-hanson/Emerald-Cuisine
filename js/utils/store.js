@@ -165,8 +165,13 @@ export async function saveOrder(order) {
     });
     if (row) return row;
     // Demo mode fallback: keep orders in localStorage
-    const localOrders = JSON.parse(localStorage.getItem('emeraldOrders') || '{}');
-    localOrders[order.orderNumber] = { ...order, createdAt: Date.now(), status: 'received' };
+    let localOrders = {};
+    try {
+        localOrders = JSON.parse(localStorage.getItem('emeraldOrders') || '{}');
+    } catch {
+        localOrders = {};
+    }
+    localOrders[order.orderNumber] = { ...order, createdAt: order.createdAt || Date.now(), status: 'received' };
     localStorage.setItem('emeraldOrders', JSON.stringify(localOrders));
     return order;
 }
@@ -194,7 +199,12 @@ export async function getOrder(orderNumber) {
         };
     }
     // Demo mode fallback
-    const localOrders = JSON.parse(localStorage.getItem('emeraldOrders') || '{}');
+    let localOrders = {};
+    try {
+        localOrders = JSON.parse(localStorage.getItem('emeraldOrders') || '{}');
+    } catch {
+        localOrders = {};
+    }
     return localOrders[orderNumber] || null;
 }
 
@@ -203,12 +213,16 @@ export async function getSubscribers() {
 }
 
 export async function addSubscriber(email) {
-    const row = await insertRow('subscribers', { email });
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return null;
+    const row = await insertRow('subscribers', { email: normalized });
     if (row) return row;
     const subscribers = JSON.parse(localStorage.getItem('emeraldSubscribers') || '[]');
-    if (!subscribers.some(sub => sub.email === email)) subscribers.push({ email });
+    if (!subscribers.some(sub => String(sub.email).trim().toLowerCase() === normalized)) {
+        subscribers.push({ email: normalized });
+    }
     localStorage.setItem('emeraldSubscribers', JSON.stringify(subscribers));
-    return { email };
+    return { email: normalized };
 }
 
 export async function removeSubscriber(id) {
@@ -216,7 +230,15 @@ export async function removeSubscriber(id) {
 }
 
 export async function getReviews() {
-    return fetchRows('reviews', { order: 'created_at', ascending: false, limit: 50 });
+    const rows = await fetchRows('reviews', { order: 'created_at', ascending: false, limit: 50 });
+    if (rows) return rows;
+    // Demo mode fallback: mirror what addReview() writes to localStorage
+    try {
+        const localReviews = JSON.parse(localStorage.getItem('emeraldReviews') || 'null');
+        return Array.isArray(localReviews) ? localReviews : [];
+    } catch {
+        return [];
+    }
 }
 
 export async function addReview(review) {
@@ -239,8 +261,13 @@ export async function getActivePromotion() {
 }
 
 export async function getSetting(key, fallback = '') {
-    const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
-    return (rows && rows.length) ? rows[0].value : fallback;
+    try {
+        const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
+        return (rows && rows.length) ? rows[0].value : fallback;
+    } catch (error) {
+        console.error(`Failed to fetch setting "${key}":`, error);
+        return fallback;
+    }
 }
 
 export function getLocalSetting(key, fallback = '') {

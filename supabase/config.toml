@@ -1,0 +1,11 @@
+# Supabase project configuration
+# Managed by the Supabase CLI. Customise the local project and
+# deployed Edge Function settings here.
+
+project_id = "nbzqofzuotetkvtuloba"
+
+# The send-promotion-email function authenticates with the publishable key
+# (auth: 'publishable'), so the platform-level JWT check must be disabled.
+# See https://supabase.com/docs/guides/functions/auth
+[functions.send-promotion-email]
+verify_jwt = false

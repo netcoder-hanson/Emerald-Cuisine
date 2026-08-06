@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -14,40 +14,43 @@
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <div class="announcement" role="status">
         <div class="container announcement-inner">
-            <p>Enjoy free delivery within Lagos for orders above ₦20,000.</p>
+            <p>Enjoy free delivery within Lagos for orders of ₦20,000 or more.</p>
         </div>
     </div>
 
-    <header id="header" class="site-header">
+<header id="header" class="site-header">
         <div class="container header-inner">
             <a href="index.html" class="logo" aria-label="Emerald's Cuisine home">
                 <span>Emerald's</span>
                 <small>Cuisine</small>
             </a>
-
-            <nav class="primary-nav" aria-label="Main navigation">
-                <ul class="nav-links">
-                    <li><a href="#home">Home</a></li>
-                    <li><a href="#menu">Menu</a></li>
-                    <li><a href="#about">About</a></li>
-                    <li><a href="#reservations">Reservations</a></li>
-                    <li><a href="#gallery">Gallery</a></li>
-                    <li><a href="#contact">Contact</a></li>
-                    <li><a href="order.html" class="nav-cta">Order Now</a></li>
-                </ul>
-            </nav>
-
-            <div class="header-actions">
-                <div class="auth-slot"></div>
-                <button type="button" class="btn btn-secondary reserve-trigger">Reserve Table</button>
-                <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </button>
-            </div>
+            <button type="button" class="hamburger" aria-label="Open menu" aria-expanded="false">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
         </div>
     </header>
+
+    <aside class="site-sidebar" aria-label="Main navigation">
+        <a href="index.html" class="site-sidebar-logo">Emerald's <span>Cuisine</span></a>
+        <nav class="site-sidebar-nav" aria-label="Primary">
+            <a href="#home" class="site-sidebar-item"><i data-lucide="home" aria-hidden="true"></i><span>Home</span></a>
+            <a href="#menu" class="site-sidebar-item"><i data-lucide="utensils" aria-hidden="true"></i><span>Menu</span></a>
+            <a href="#about" class="site-sidebar-item"><i data-lucide="info" aria-hidden="true"></i><span>About</span></a>
+            <a href="#reservations" class="site-sidebar-item"><i data-lucide="calendar-check" aria-hidden="true"></i><span>Reservations</span></a>
+            <a href="#gallery" class="site-sidebar-item"><i data-lucide="image" aria-hidden="true"></i><span>Gallery</span></a>
+            <a href="#contact" class="site-sidebar-item"><i data-lucide="mail" aria-hidden="true"></i><span>Contact</span></a>
+        </nav>
+        <a href="order.html" class="site-sidebar-cta nav-cta"><i data-lucide="shopping-bag" aria-hidden="true"></i> Order Now</a>
+        <div class="site-sidebar-actions">
+            <div class="auth-slot"></div>
+            <button type="button" class="btn btn-secondary reserve-trigger">Reserve Table</button>
+        </div>
+        <div class="site-sidebar-footer">
+            <a href="track.html" class="site-sidebar-item"><i data-lucide="package" aria-hidden="true"></i><span>Track Order</span></a>
+        </div>
+    </aside>
 
     <div class="nav-overlay"></div>
 
@@ -520,6 +523,16 @@
                         <input type="time" name="time" required>
                     </label>
                     <label>
+                        Table type
+                        <select name="tableType" id="reservation-table-type" required>
+                            <option value="" disabled selected>Select table type</option>
+                            <option value="standard" data-fee="5000">Standard Table (2–4 guests) — ₦5,000</option>
+                            <option value="vip" data-fee="15000">VIP Table (4–6 guests) — ₦15,000</option>
+                            <option value="private" data-fee="30000">Private Dining Room (6–10 guests) — ₦30,000</option>
+                            <option value="outdoor" data-fee="10000">Garden/Outdoor Seating (2–6 guests) — ₦10,000</option>
+                        </select>
+                    </label>
+                    <label>
                         Guests
                         <select name="guests" required>
                             <option value="" disabled selected>Select guests</option>
@@ -530,16 +543,23 @@
                         </select>
                     </label>
                 </div>
+                <p class="reservation-fee-note">Deposit due: <strong id="reservation-fee-amount">₦0</strong> (deducted from your final bill)</p>
                 <label class="full-width">
                     Special requests
                     <textarea name="requests" rows="4" placeholder="Any dietary preferences or special occasions"></textarea>
                 </label>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                    <button type="button" class="btn btn-danger">Cancel</button>
                     <button type="submit" class="btn btn-primary">Reserve Table</button>
                 </div>
                 <p class="form-message" aria-live="polite"></p>
             </form>
+            <div class="reservation-success hidden">
+                <div class="success-icon"><i data-lucide="circle-check" aria-hidden="true"></i></div>
+                <h3>Reservation received!</h3>
+                <p>We'll contact you shortly to confirm your booking.</p>
+                <button type="button" class="btn btn-primary" id="reservation-continue">Continue Shopping</button>
+            </div>
         </div>
     </div>
 

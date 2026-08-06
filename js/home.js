@@ -5,20 +5,29 @@ async function renderReviews() {
     const grid = document.getElementById('reviews-grid');
     if (!grid) return;
 
-    const reviews = await getReviews();
+    let reviews;
+    try {
+        reviews = await getReviews();
+    } catch (error) {
+        console.error('Failed to load reviews:', error);
+        reviews = [];
+    }
     if (!reviews || !reviews.length) {
         grid.innerHTML = '<p class="menu-empty">No reviews yet. Be the first to share your experience!</p>';
         return;
     }
 
-    grid.innerHTML = reviews.slice(0, 6).map(review => `
-        <article class="review-card">
-            <div class="review-stars">${'★'.repeat(Math.min(5, Math.max(1, review.rating)))}</div>
-            <h4>${escapeHtml(review.customer_name || 'Guest')}</h4>
-            <p>${escapeHtml(review.comment)}</p>
-            ${review.order_number ? `<span class="review-meta">Order ${escapeHtml(review.order_number)}</span>` : ''}
-        </article>
-    `).join('');
+    grid.innerHTML = reviews.slice(0, 6).map(review => {
+        const rating = Math.max(0, Math.min(5, Number(review.rating) || 0));
+        return `
+            <article class="review-card">
+                <div class="review-stars">${'★'.repeat(rating)}</div>
+                <h4>${escapeHtml(review.customer_name || 'Guest')}</h4>
+                <p>${escapeHtml(review.comment || '')}</p>
+                ${review.order_number ? `<span class="review-meta">Order ${escapeHtml(review.order_number)}</span>` : ''}
+            </article>
+        `;
+    }).join('');
 }
 
 function initReviewForm() {
