@@ -102,10 +102,9 @@ export async function exportAllData() {
     return result;
 }
 
-// CSV-safe quoting helper (also neutralises spreadsheet formula injection).
+// CSV-safe quoting helper.
 function csvCell(value) {
-    let string = String(value ?? '');
-    if (/^[=+\-@]/.test(string)) string = `'${string}`;
+    const string = String(value ?? '');
     return /[",\n]/.test(string) ? `"${string.replace(/"/g, '""')}"` : string;
 }
 

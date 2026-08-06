@@ -78,11 +78,10 @@ if (form) {
             setMessage('Please enter your email address.', true);
             return;
         }
-        setMessage('Processing\u2026');
-        const submitButton = form.querySelector('button[type="submit"]');
-        if (submitButton) submitButton.disabled = true;
+        setMessage('Processing&hellip;');
+        form.querySelector('button[type="submit"]').disabled = true;
         const result = await unsubscribe(email);
-        if (submitButton) submitButton.disabled = false;
+        form.querySelector('button[type="submit"]').disabled = false;
         setMessage(result.message, !result.ok);
         if (result.ok && emailInput) emailInput.disabled = true;
     });

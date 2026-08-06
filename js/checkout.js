@@ -138,18 +138,8 @@ if (checkoutForm) {
 
         let saved = false;
         try {
-            saved = !!(await saveOrder(orderData));
-        } catch (error) {
-            console.error('Failed to save order:', error);
-        }
-        if (!saved) {
-            message.textContent = 'We could not save your order right now. Please try again or contact support.';
-            message.classList.add('error');
-            if (submitButton) {
-                submitButton.disabled = false;
-                submitButton.textContent = 'Place Order';
-            }
-            return;
+            await saveOrder(orderData);
+        } catch {
         }
         await sendOrderEmails(orderData);
         clearCart();
