@@ -97,6 +97,7 @@ function buildModal() {
     overlay.addEventListener('click', event => {
         if (event.target === overlay) closeModal();
     });
+    modalRoot.querySelector('.auth-modal-close').addEventListener('click', closeModal);
     modalRoot.querySelector('.btn-danger').addEventListener('click', closeModal);
     modalRoot.querySelector('.auth-modal-form').addEventListener('submit', onSubmit);
     modalRoot.querySelector('#auth-open-signup').addEventListener('click', () => {
@@ -436,7 +437,6 @@ function renderAuthSlot() {
         ${isAdminIdentifier(user.email) || isAdminIdentifier(user.name) ? `
             <a href="admin.html" class="auth-menu-item">
                 <i data-lucide="gauge" aria-hidden="true"></i> Admin dashboard
-                <i class="fa-solid fa-gauge-high" aria-hidden="true"></i> Admin dashboard
             </a>
         ` : ''}
         <button type="button" class="auth-menu-item" data-auth-logout>

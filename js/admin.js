@@ -6,7 +6,6 @@ import {
     getSubscribers, removeSubscriber, getSetting
 } from './utils/store.js';
 import { CATEGORY_SLUGS } from './utils/menu.js';
-import { escapeHtml } from './utils/cart.js';
 import { escapeHtml, formatPrice } from './utils/cart.js';
 import { getAdminCredentials, saveAdminCredentials, isAdminCredentials } from './utils/admin.js';
 
@@ -24,22 +23,6 @@ function showDashboard() {
     dashboard.classList.remove('hidden');
     initDashboard();
     initAdminCredentialsForm();
-}
-
-if (isLoggedIn()) {
-    showDashboard();
-} else {
-    loginForm.addEventListener('submit', async event => {
-        event.preventDefault();
-        const username = loginForm.querySelector('input[name="username"]').value;
-        const password = loginForm.querySelector('input[name="password"]').value;
-        if (await isAdminCredentials(username, password)) {
-            sessionStorage.setItem('emeraldAdmin', '1');
-            showDashboard();
-        } else {
-            loginError.textContent = 'Incorrect username or password. Please try again.';
-        }
-    });
 }
 
 document.getElementById('logout-btn').addEventListener('click', () => {
@@ -1501,13 +1484,13 @@ const adminCredentialsForm = document.getElementById('admin-credentials-form');
 
 function initAdminCredentialsForm() {
     if (!adminCredentialsForm) return;
-    const creds = getAdminCredentials();
+    const creds = getAdminCredentials() || {};
     const usernameInput = adminCredentialsForm.querySelector('[name="adminUsername"]');
     const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
     if (usernameInput) usernameInput.value = creds.username || '';
     if (emailInput) emailInput.value = creds.email || '';
 
-    adminCredentialsForm.addEventListener('submit', event => {
+    adminCredentialsForm.addEventListener('submit', async event => {
         event.preventDefault();
         const message = adminCredentialsForm.querySelector('.form-message');
         const data = new FormData(adminCredentialsForm);
@@ -1519,7 +1502,7 @@ function initAdminCredentialsForm() {
         message.textContent = '';
         message.classList.remove('error');
 
-        if (!isAdminCredentials(creds.username, currentPassword)) {
+        if (!(await isAdminCredentials(creds.username, currentPassword))) {
             message.textContent = 'Current password is incorrect.';
             message.classList.add('error');
             return;
@@ -1529,7 +1512,7 @@ function initAdminCredentialsForm() {
             message.classList.add('error');
             return;
         }
-        if (!saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail })) {
+        if (!(await saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail }))) {
             message.textContent = 'Please enter a valid username and password.';
             message.classList.add('error');
             return;
@@ -1557,16 +1540,18 @@ function initDashboard() {
     initSettingsLogoUpload();
 }
 
+// Boot once, at the very end of the module: every const element reference
+// above is initialised by now, so both the logged-in and login paths work.
 refreshIcons();
 
 if (isLoggedIn()) {
     showDashboard();
 } else {
-    loginForm.addEventListener('submit', event => {
+    loginForm.addEventListener('submit', async event => {
         event.preventDefault();
         const username = loginForm.querySelector('input[name="username"]').value;
         const password = loginForm.querySelector('input[name="password"]').value;
-        if (isAdminCredentials(username, password)) {
+        if (await isAdminCredentials(username, password)) {
             sessionStorage.setItem('emeraldAdmin', '1');
             showDashboard();
         } else {
