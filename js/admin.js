@@ -1229,53 +1229,6 @@ if (customerSearch) {
         customerSearchTimer = setTimeout(() => renderCustomers(customerSearch.value), 250);
     });
 }
-// ---------------- Admin credentials ----------------
-
-const adminCredentialsForm = document.getElementById('admin-credentials-form');
-
-function initAdminCredentialsForm() {
-    if (!adminCredentialsForm) return;
-    const creds = getAdminCredentials();
-    const usernameInput = adminCredentialsForm.querySelector('[name="adminUsername"]');
-    const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
-    if (usernameInput) usernameInput.value = creds.username || '';
-    if (emailInput) emailInput.value = creds.email || '';
-
-    adminCredentialsForm.addEventListener('submit', event => {
-        event.preventDefault();
-        const message = adminCredentialsForm.querySelector('.form-message');
-        const data = new FormData(adminCredentialsForm);
-        const currentPassword = String(data.get('currentPassword') || '');
-        const newPassword = String(data.get('newPassword') || '').trim();
-        const newUsername = String(data.get('adminUsername') || '').trim();
-        const newEmail = String(data.get('adminEmail') || '').trim();
-
-        message.textContent = '';
-        message.classList.remove('error');
-
-        if (!isAdminCredentials(creds.username, currentPassword)) {
-            message.textContent = 'Current password is incorrect.';
-            message.classList.add('error');
-            return;
-        }
-        if (newPassword.length < 6) {
-            message.textContent = 'New password must be at least 6 characters.';
-            message.classList.add('error');
-            return;
-        }
-        if (!saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail })) {
-            message.textContent = 'Please enter a valid username and password.';
-            message.classList.add('error');
-            return;
-        }
-        adminCredentialsForm.reset();
-        usernameInput.value = newUsername;
-        emailInput.value = newEmail;
-        message.textContent = 'Admin credentials updated. Use them on your next sign-in.';
-        message.classList.remove('error');
-    });
-}
-
 // ---------------- Settings ----------------
 
 const settingsForm = document.getElementById('settings-form');
