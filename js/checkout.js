@@ -136,6 +136,7 @@ if (checkoutForm) {
             submitButton.textContent = 'Placing your order...';
         }
 
+        let saved = false;
         try {
             await saveOrder(orderData);
         } catch {

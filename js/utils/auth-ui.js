@@ -97,7 +97,6 @@ function buildModal() {
     overlay.addEventListener('click', event => {
         if (event.target === overlay) closeModal();
     });
-    modalRoot.querySelector('.auth-modal-close').addEventListener('click', closeModal);
     modalRoot.querySelector('.btn-danger').addEventListener('click', closeModal);
     modalRoot.querySelector('.auth-modal-form').addEventListener('submit', onSubmit);
     modalRoot.querySelector('#auth-open-signup').addEventListener('click', () => {

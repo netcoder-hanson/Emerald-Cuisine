@@ -25,6 +25,22 @@ function showDashboard() {
     initAdminCredentialsForm();
 }
 
+if (isLoggedIn()) {
+    showDashboard();
+} else {
+    loginForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        const username = loginForm.querySelector('input[name="username"]').value;
+        const password = loginForm.querySelector('input[name="password"]').value;
+        if (await isAdminCredentials(username, password)) {
+            sessionStorage.setItem('emeraldAdmin', '1');
+            showDashboard();
+        } else {
+            loginError.textContent = 'Incorrect username or password. Please try again.';
+        }
+    });
+}
+
 document.getElementById('logout-btn').addEventListener('click', () => {
     sessionStorage.removeItem('emeraldAdmin');
     window.location.reload();
