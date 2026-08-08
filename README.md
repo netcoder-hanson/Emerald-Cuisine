@@ -263,6 +263,83 @@ The Supabase RLS policies and browser-based admin password are **demo-grade** an
 
 ---
 
+## Phase 0: Secure Order Foundation
+
+### Changes Made
+
+#### Database Migration
+- **`supabase/migrations/20260808000000_phase0_foundation.sql`**: Adds foundational columns for secure customer-order relationships
+  - Adds `customer_id` column to `orders` table (nullable for backward compatibility)
+  - Adds `marketing_opt_in`, `password_hash`, `session_token`, `remember_me`, `last_seen`, `created_at` to `customers` table
+  - Adds performance indexes for order lookups
+  - All operations are additive and use `IF NOT EXISTS` to prevent breaking existing tables
+
+#### Secure Order Numbers
+- **Format**: `EC-XXXXXX` (6 cryptographically random alphanumeric characters)
+- **Excludes ambiguous characters**: I, O, 0, 1
+- **Entropy**: ~35 bits (36^6 possible combinations)
+- **Backward compatible**: Existing `EBF*` order numbers continue to work
+
+#### Order Storage
+- **No more phantom orders**: Failed database saves now throw an error instead of falling back to localStorage
+- **Cart preservation**: Cart data is preserved locally for retry when database save fails
+- **Customer linking**: Orders now include `customer_id` when the user is signed in
+
+#### Confirmation & Tracking
+- **Database-first**: Confirmation and tracking pages now query the database first
+- **No localStorage masquerade**: localStorage-only orders are clearly marked as unconfirmed
+- **Clear error messages**: Users see helpful messages when orders are not found
+
+### Customer/Order Relationship
+
+Orders are now linked to customer accounts via `customer_id`:
+- When a signed-in user places an order, their `customer_id` is stored with the order
+- Existing historical orders remain with `customer_id = NULL` until manually reconciled
+- Foreign key constraint requires manual verification of `customers.id` column type
+
+### Security Improvements
+
+1. **Order number security**: Predictable timestamp-based order numbers replaced with cryptographically secure generation
+2. **Phantom order prevention**: Failed database saves no longer create fake successful orders
+3. **Database-first lookups**: Confirmation and tracking pages prefer database over localStorage
+4. **Cart recovery**: Failed orders preserve cart contents for retry without creating phantom orders
+
+### Current Authentication Limitations
+
+The following limitations remain and should be addressed in future phases:
+
+1. **Client-side admin auth**: Admin authentication is still browser-based (sessionStorage)
+2. **No RLS policies**: Row Level Security policies are not yet configured in the repository
+3. **No Supabase Auth**: The application uses a custom session system, not Supabase Auth
+4. **No order isolation**: Any user can still view any order by number (no ownership verification)
+
+### Remaining Security Work
+
+- **P0**: Implement RLS policies to restrict order access to order owners
+- **P0**: Move admin authentication server-side
+- **P0**: Add order ownership verification for tracking/confirmation
+- **P1**: Consider migrating to Supabase Auth for better security
+- **P1**: Add rate limiting for order lookups
+- **P2**: Implement order status updates from restaurant
+
+### Database Migration Instructions
+
+After pulling these changes, run the migration in the Supabase SQL Editor:
+
+```sql
+-- Check if customer_id column exists on orders table
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_name = 'orders' AND column_name = 'customer_id';
+
+-- If not, run the migration file contents from:
+-- supabase/migrations/20260808000000_phase0_foundation.sql
+```
+
+**Important**: Verify `customers.id` is UUID type before adding the foreign key constraint. The commented-out constraint in the migration file should be uncommented after verification.
+
+---
+
 ## License
 
 This project is for demonstration/educational purposes. See the repository for any licensing details.

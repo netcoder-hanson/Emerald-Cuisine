@@ -177,29 +177,27 @@ async function load() {
         return;
     }
 
-    let localOrder = null;
-    try {
-        localOrder = JSON.parse(localStorage.getItem('emeraldLastOrder') || 'null');
-    } catch {
-        localOrder = null;
-    }
     let order = null;
     if (orderNumber) {
-        if (localOrder && localOrder.orderNumber === orderNumber) {
-            order = localOrder;
-        } else {
-            try {
-                order = await getOrder(orderNumber);
-            } catch (error) {
-                console.error('Failed to load order:', error);
-                heroOrder.textContent = 'We could not load that order right now. Please try again.';
-                return;
-            }
+        try {
+            // ALWAYS query database first (no localStorage fallback)
+            order = await getOrder(orderNumber);
+        } catch (error) {
+            console.error('Failed to load order:', error);
+            heroOrder.textContent = 'We could not load that order right now. Please try again.';
+            return;
         }
     }
 
     if (!order) {
-        heroOrder.textContent = `No order found for ${orderNumber}.`;
+        heroOrder.textContent = `No order found for ${escapeHtml(orderNumber)}.`;
+        card.innerHTML = `
+            <p class="menu-empty">We could not find this order in our system.</p>
+            <p class="menu-empty" style="margin-top: 16px;">
+                Please check your order number and try again, or contact us for assistance.
+            </p>
+            <a href="order.html" class="btn btn-primary" style="margin-top: 24px;">Place a New Order</a>
+        `;
         return;
     }
 

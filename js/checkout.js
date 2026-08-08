@@ -1,6 +1,6 @@
 import { getCart, formatPrice, calculateTotals, clearCart, escapeHtml, getCartItemDetails } from './utils/cart.js';
 import { getMenuItems } from './utils/menu.js';
-import { saveOrder } from './utils/store.js';
+import { saveOrder, generateSecureOrderNumber } from './utils/store.js';
 import { sendOrderEmails } from './utils/email.js';
 import { getCurrentUser, restoreSession } from './utils/auth.js';
 
@@ -116,7 +116,7 @@ if (checkoutForm) {
 
         const { subtotal, vat, deliveryFee, total } = calculateTotals(items, deliveryType);
         const orderData = {
-            orderNumber: `EBF${Date.now().toString().slice(-6)}`,
+            orderNumber: generateSecureOrderNumber(),
             createdAt: new Date().toISOString(),
             estimatedTime: deliveryType === 'pickup' ? 'Ready in 20-30 mins' : 'Estimated delivery in 40-55 mins',
             fullName,
@@ -138,9 +138,10 @@ if (checkoutForm) {
         }
 
         try {
-            await saveOrder(orderData);
+            // Save with cart preservation for recovery
+            await saveOrder(orderData, { preserveCartOnError: true });
         } catch (error) {
-            message.textContent = 'We could not save your order. Please check your connection and try again.';
+            message.textContent = error.message || 'We could not save your order. Please check your connection and try again. Your cart has been preserved for retry.';
             message.classList.add('error');
             if (submitButton) {
                 submitButton.disabled = false;
@@ -150,18 +151,19 @@ if (checkoutForm) {
             return;
         }
 
+        // Only send emails and show confirmation if save succeeded
         const emailSent = await sendOrderEmails(orderData);
         message.classList.remove('error');
         message.classList.add('success');
         message.textContent = emailSent
-            ? 'Order confirmed. Please check your email for your receipt.'
-            : 'Order confirmed. Please check your email for your receipt.';
+            ? 'Order confirmed! Please check your email for your receipt.'
+            : 'Order confirmed! Your order has been placed successfully.';
 
         clearCart();
         localStorage.setItem('emeraldLastOrder', JSON.stringify(orderData));
         setTimeout(() => {
             window.location.href = `confirmation.html?order=${orderData.orderNumber}`;
-        }, 1600);
+        }, 1500);
     });
 }
 
