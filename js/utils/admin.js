@@ -3,8 +3,7 @@ import { hashPassword } from './auth.js';
 
 // Admin credentials can be overridden at runtime (saved from the admin
 // dashboard -> Settings -> Admin credentials). When no override exists
-// we fall back to the defaults in js/config.js (username: admin,
-// password: admin123).
+// we fall back to the defaults in js/config.js.
 const CREDENTIALS_KEY = 'emeraldAdminCredentials';
 
 function isHashValue(value) {
@@ -79,7 +78,7 @@ export async function isAdminCredentials(identifier, password) {
     // No saved credentials yet — the site uses the config defaults (demo).
     const usernameMatches = id === String(CONFIG.adminUsername || 'admin').trim().toLowerCase();
     const emailMatches = Boolean(CONFIG.adminEmail) && id === String(CONFIG.adminEmail).trim().toLowerCase();
-    return (usernameMatches || emailMatches) && supplied === String(CONFIG.adminPassword || 'admin123');
+    return Boolean(CONFIG.adminPassword) && (usernameMatches || emailMatches) && supplied === String(CONFIG.adminPassword);
 }
 
 // Sync check used only for UI hints (e.g. showing an "Admin dashboard"

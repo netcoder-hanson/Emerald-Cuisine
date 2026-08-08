@@ -22,7 +22,7 @@ Built as a **static site with no framework and no build step** — plain HTML, C
 
 ## Demo mode
 
-Out of the box the site runs in **demo mode** — no backend required. Menu data loads from `data/menu.json`, and orders, reviews and subscribers are stored in `localStorage`. Add your Supabase + EmailJS keys to switch to live mode.
+Out of the box the site runs in **demo mode** — no backend required. Menu data loads from `data/menu.json`, and orders, reviews and subscribers are stored in `localStorage`. Add your Supabase + MailerSend settings to switch to live mode.
 
 ---
 
@@ -34,7 +34,7 @@ Out of the box the site runs in **demo mode** — no backend required. Menu data
 | Styling | CSS3 — Flexbox & Grid, mobile-first, single `css/style.css` |
 | Logic | Vanilla JavaScript ES modules |
 | Database | [Supabase](https://supabase.com) (PostgreSQL) via CDN `@supabase/supabase-js@2` |
-| Email | [EmailJS](https://www.emailjs.com) (browser-side email) |
+| Email | [MailerSend](https://www.mailersend.com) via Supabase Edge Functions |
 | Icons / Fonts | Font Awesome 6, Lucide, Google Fonts (Inter + Poppins) |
 | Linting | webhint (`.hintrc`, modern browsers only) |
 
@@ -74,7 +74,7 @@ Then visit `http://localhost:8000`.
 
 ---
 
-## Going Live (Supabase + EmailJS)
+## Going Live (Supabase + MailerSend)
 
 ### 1. Supabase
 
@@ -88,14 +88,19 @@ Then visit `http://localhost:8000`.
 
 5. Enable **Row Level Security** on each table and add open (demo) policies as described in the file — the tables are configured for learning/demo purposes; use stricter policies for a public production site.
 
-### 2. EmailJS
+### 2. MailerSend
 
-1. Create a free account at [emailjs.com](https://www.emailjs.com).
-2. Add an email service and **one** template. Set the template's *To Email* field to `{{to_email}}`.
-3. Copy your public key, service ID and template ID into `js/config.js` under `CONFIG.emailjs`.
-4. Set `restaurantEmail` to the inbox that should receive new order notifications.
-
-The template variables are documented in `js/config.js` (restaurant copy, customer receipt, and promo blast all use the same template, toggled with `is_restaurant`, `is_customer` and `is_promo`).
+1. Create a free account at [mailersend.com](https://www.mailersend.com).
+2. Set the sender inbox you want to use for order emails.
+3. Add these secrets to your Supabase project:
+   ```bash
+   supabase secrets set MAILERSEND_API_KEY=mlsn.xxxxxxxx
+   supabase secrets set MAILERSEND_FROM_EMAIL=orders@emeraldscuisine.com
+   supabase secrets set MAILERSEND_FROM_NAME="Emerald's Cuisine"
+   supabase secrets set RESTAURANT_EMAIL=you@example.com
+   supabase secrets set SITE_URL=https://emeraldscuisine.com
+   ```
+4. Deploy the included `send-order-email` edge function.
 
 ### 3. Storage bucket (image uploads)
 
@@ -137,12 +142,11 @@ MailerSend API key is never exposed in the browser.
    `marketing_opt_in = true`, respects unsubscribe consent, includes an unsubscribe
    link in every email, and writes `last_sent_at` / sent / failed counts back to the
    promotion row.
-5. If the function is not deployed/reachable, the admin UI falls back to EmailJS in
-   demo mode (requires the EmailJS keys above).
+5. If the function is not deployed/reachable, the admin UI will continue to use the MailerSend-powered edge function for promo emails, but order receipts will not be sent until `send-order-email` is deployed.
 
 ### 5. Admin login
 
-The admin dashboard password is `admin123` by default — change it in `js/config.js` (`CONFIG.adminPassword`).
+Set the admin dashboard password in `js/config.js` (`CONFIG.adminPassword`) before deploying.
 
 ---
 
@@ -153,7 +157,6 @@ All site configuration lives in one place: `js/config.js`.
 ```js
 CONFIG = {
   supabase: { url, anonKey },
-  emailjs: { publicKey, serviceId, templateId, restaurantEmail },
   adminPassword,
   restaurantLocation: { lat, lng }   // used by the order tracker map
 }
@@ -193,7 +196,7 @@ While keys are empty, the site stays in demo mode.
 │       ├── auth.js        Sign in / register, session persistence, "keep me signed in"
 │       ├── auth-ui.js     Global sign-in widget + modal injected into every page header
 │       ├── cart.js        Cart, totals, price formatting, escapeHtml
-│       ├── email.js       EmailJS sends (restaurant/customer/promo)
+│       ├── email.js       Order receipt sends via Supabase edge function
 │       ├── menu.js        Menu + categories (Supabase then menu.json fallback)
 │       ├── store.js       Generic Supabase CRUD + LocalStorage fallbacks
 │       └── supabase.js    Supabase client creation
@@ -229,7 +232,7 @@ Any static host works — [Netlify](https://netlify.com), [Vercel](https://verce
 
 ## Disclaimer
 
-The Supabase RLS policies and admin password included here are **demo-grade** and are intended for learning. Before deploying to production, replace the password, harden the database policies, and review the API keys' visibility.
+The Supabase RLS policies and browser-based admin password are **demo-grade** and are intended for learning. Before deploying to production, move admin authentication server-side, harden the database policies, and review the API keys' visibility.
 
 ---
 

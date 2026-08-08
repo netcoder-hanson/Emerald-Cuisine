@@ -1,6 +1,8 @@
 import CONFIG from '../config.js';
 import { getSupabaseClient } from './supabase.js';
 
+const LOCAL_ORDERS_KEY = 'emeraldOrders';
+
 export async function fetchRows(tableName, options = {}) {
     const client = getSupabaseClient();
     if (!client) return null;
@@ -137,7 +139,7 @@ export function downloadAsCsv(filename, headers, rows) {
 }
 
 export async function saveOrder(order) {
-    const row = await insertRow('orders', {
+    const localOrder = {
         order_number: order.orderNumber,
         customer_name: order.fullName,
         phone: order.phone,
@@ -150,10 +152,26 @@ export async function saveOrder(order) {
         vat: order.vat,
         delivery_fee: order.deliveryFee,
         total: order.total,
-        status: 'received'
+        status: 'received',
+        created_at: order.createdAt || new Date().toISOString()
+    };
+
+    const row = await insertRow('orders', {
+        ...localOrder
     });
-    if (!row) throw new Error('Failed to save order to database');
-    return row;
+    if (row) {
+        return row;
+    }
+
+    try {
+        const stored = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
+        const list = Array.isArray(stored) ? stored : [];
+        list.unshift(localOrder);
+        localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(list.slice(0, 100)));
+        return localOrder;
+    } catch {
+        throw new Error('Failed to save order to database');
+    }
 }
 
 export async function getOrder(orderNumber) {
@@ -177,6 +195,32 @@ export async function getOrder(orderNumber) {
             status: row.status,
             createdAt: row.created_at
         };
+    }
+
+    try {
+        const stored = JSON.parse(localStorage.getItem(LOCAL_ORDERS_KEY) || '[]');
+        const row = Array.isArray(stored) ? stored.find(entry => String(entry.order_number) === String(orderNumber)) : null;
+        if (row) {
+            return {
+                orderNumber: row.order_number,
+                estimatedTime: row.delivery_type === 'pickup' ? 'Ready in 20-30 mins' : 'Estimated delivery in 40-55 mins',
+                fullName: row.customer_name,
+                phone: row.phone,
+                email: row.email,
+                address: row.address,
+                items: row.items,
+                total: Number(row.total),
+                subtotal: Number(row.subtotal),
+                vat: Number(row.vat),
+                deliveryFee: Number(row.delivery_fee),
+                deliveryType: row.delivery_type,
+                paymentMethod: row.payment_method,
+                status: row.status,
+                createdAt: row.created_at
+            };
+        }
+    } catch {
+        // Ignore local fallback errors.
     }
     return null;
 }

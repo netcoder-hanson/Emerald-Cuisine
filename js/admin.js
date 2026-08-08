@@ -972,6 +972,8 @@ document.getElementById('export-subscribers')?.addEventListener('click', async (
 
 const customersList = document.getElementById('customers-list');
 const customerSearch = document.getElementById('customer-search');
+const orderEmailsList = document.getElementById('order-emails-list');
+const orderEmailSearch = document.getElementById('order-email-search');
 
 async function getAdminCustomers() {
     try {
@@ -990,6 +992,16 @@ async function getOrdersByEmail(email) {
         if (rows && rows.length) return rows;
     } catch {
         // Could not fetch orders
+    }
+    return [];
+}
+
+async function getAdminOrders() {
+    try {
+        const rows = await fetchRows('orders', { order: 'created_at', ascending: false, limit: 300 });
+        if (rows && rows.length) return rows;
+    } catch (error) {
+        showToast(`Could not load orders: ${error.message}`, 'error');
     }
     return [];
 }
@@ -1116,6 +1128,67 @@ async function openCustomerHistory(customer) {
 
 if (customerSearch) {
     customerSearch.addEventListener('input', () => renderCustomers(customerSearch.value));
+}
+
+function formatOrderEmailCard(order) {
+    const created = order.created_at || order.createdAt || null;
+    const createdText = created ? new Date(created).toLocaleString() : 'Unknown time';
+    const email = String(order.customer_email || order.email || '').trim();
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemSummary = items.length
+        ? items.map(item => `${escapeHtml(item.name)} x${escapeHtml(item.quantity)}`).join(', ')
+        : 'No items recorded';
+
+    return `
+        <article class="admin-email-card">
+            <div class="admin-row">
+                <div class="admin-row-main">
+                    <strong>${escapeHtml(order.order_number || order.orderNumber || 'Order')}</strong>
+                    <span>${escapeHtml(order.customer_name || order.fullName || 'Customer')}</span>
+                    <span>${escapeHtml(email || 'No customer email')} &middot; ${escapeHtml(createdText)}</span>
+                </div>
+                <span class="admin-badge ok">Saved order</span>
+            </div>
+            <div class="admin-email-body">
+                <p><strong>To customer:</strong> ${escapeHtml(email || '—')}</p>
+                <p><strong>Restaurant copy:</strong> Sent to Gmail inbox configured in Supabase secrets.</p>
+                <p><strong>Items:</strong> ${itemSummary}</p>
+                <p><strong>Total:</strong> ${formatMoney(Number(order.total || 0), '₦')}</p>
+            </div>
+        </article>
+    `;
+}
+
+async function renderOrderEmails(filter = '') {
+    if (!orderEmailsList) return;
+    let rows;
+    try {
+        rows = await getAdminOrders();
+    } catch {
+        rows = [];
+    }
+
+    const query = String(filter || '').trim().toLowerCase();
+    const filtered = rows.filter(order => {
+        if (!query) return true;
+        const haystack = [
+            order.order_number,
+            order.orderNumber,
+            order.customer_name,
+            order.fullName,
+            order.customer_email,
+            order.email
+        ].map(value => String(value || '').toLowerCase()).join(' ');
+        return haystack.includes(query);
+    });
+
+    orderEmailsList.innerHTML = filtered.length
+        ? filtered.map(formatOrderEmailCard).join('')
+        : '<p class="admin-empty">No order emails found.</p>';
+}
+
+if (orderEmailSearch) {
+    orderEmailSearch.addEventListener('input', () => renderOrderEmails(orderEmailSearch.value));
 }
 // ---------------- Settings ----------------
 
@@ -1460,6 +1533,7 @@ function initDashboard() {
     renderPromotions();
     renderSubscribers();
     renderCustomers();
+    renderOrderEmails(orderEmailSearch?.value || '');
     renderSettings();
     initSettingsLogoUpload();
 }

@@ -1,8 +1,8 @@
 // ============================================================
 // Site configuration for Emerald's Cuisine
 // ------------------------------------------------------------
-// Supabase and EmailJS keys below. While keys are empty, the site
-// keeps working in "demo mode" (menu falls back to menu.json,
+// Supabase settings below. While keys are empty, the site keeps
+// working in "demo mode" (menu falls back to menu.json,
 // orders/reviews are local only).
 // ============================================================
 
@@ -22,15 +22,8 @@ const CONFIG = {
         leadTime: 30
     },
 
-    emailjs: {
-        publicKey: 'V4Tpt0y6t2153vgDX',
-        serviceId: 'service_tidc7oe',
-        templateId: 'template_37hgsd4',
-        restaurantEmail: 'jerry02wright@outlook.com'
-    },
-
     adminUsername: 'admin',
-    adminPassword: 'admin123',
+    adminPassword: '',
     // Email used to sign in as admin from the site header as an alternative
     // to the username. Entering this email + the admin password also
     // redirects straight to admin.html.
@@ -44,6 +37,6 @@ const CONFIG = {
 
 export default CONFIG;
 
-// Supabase tables, storage bucket, and the send-promotion-email edge
-// function are configured in the Supabase dashboard.
+// Supabase tables, storage bucket, and the send-promotion-email and
+// send-order-email edge functions are configured in the Supabase dashboard.
 // See README.md for the full setup guide.

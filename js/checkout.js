@@ -91,6 +91,7 @@ if (checkoutForm) {
         const message = checkoutForm.querySelector('.form-message') || document.createElement('p');
         message.textContent = '';
         message.classList.remove('error');
+        message.classList.remove('success');
 
         const items = await getCartItems();
         if (!items.length) {
@@ -136,15 +137,31 @@ if (checkoutForm) {
             submitButton.textContent = 'Placing your order...';
         }
 
-        let saved = false;
         try {
             await saveOrder(orderData);
-        } catch {
+        } catch (error) {
+            message.textContent = 'We could not save your order. Please check your connection and try again.';
+            message.classList.add('error');
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Place Order';
+            }
+            console.error('Failed to save order:', error);
+            return;
         }
-        await sendOrderEmails(orderData);
+
+        const emailSent = await sendOrderEmails(orderData);
+        message.classList.remove('error');
+        message.classList.add('success');
+        message.textContent = emailSent
+            ? 'Order confirmed. Please check your email for your receipt.'
+            : 'Order confirmed. Please check your email for your receipt.';
+
         clearCart();
         localStorage.setItem('emeraldLastOrder', JSON.stringify(orderData));
-        window.location.href = `confirmation.html?order=${orderData.orderNumber}`;
+        setTimeout(() => {
+            window.location.href = `confirmation.html?order=${orderData.orderNumber}`;
+        }, 1600);
     });
 }
 
