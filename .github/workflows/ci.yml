@@ -23,8 +23,17 @@ jobs:
         with:
           root: .
 
+      - name: Check CSS
+        run: npx stylelint "css/**/*.css"
+
       - name: Check JavaScript syntax
         run: |
           find . -name "*.js" \
             -not -path "./.git/*" \
             -print0 | xargs -0 -n1 node --check
+
+      - name: Check broken local references
+        run: bash .github/ci/check-assets.sh .
+
+      - name: Scan for committed secrets
+        run: bash .github/ci/check-secrets.sh .

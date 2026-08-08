@@ -235,6 +235,22 @@ More detailed guidance for AI agents and contributors lives in [`agents.md`](./a
 
 ---
 
+## CI Checks
+
+GitHub Actions runs the following checks on every push to `dev` and every PR targeting `main`:
+
+| Check | What it catches | Tool |
+| --- | --- | --- |
+| **HTML validation** | Structural/syntax errors in HTML files | html5validator |
+| **CSS validation** | Invalid properties, syntax errors, unclosed blocks in CSS | stylelint |
+| **JavaScript syntax** | Syntax errors in all `.js` files | `node --check` |
+| **Broken local references** | Missing images, CSS, JS files referenced from HTML/CSS/JS | Custom shell script |
+| **Secret detection** | Private keys, service-role keys, connection strings, hardcoded passwords | Custom shell script |
+
+The Supabase publishable (anon) key is excluded from secret detection since it is intentionally public per Supabase's security model. Service-role keys and other privileged credentials are flagged.
+
+---
+
 ## Deployment
 
 Any static host works — [Netlify](https://netlify.com), [Vercel](https://vercel.com), [Cloudflare Pages](https://pages.cloudflare.com), or GitHub Pages. Point the host at the repository root; there is no build command and no output directory.
