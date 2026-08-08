@@ -141,7 +141,8 @@ function clearFieldErrors(form) {
 }
 
 function initUploadZone(zone, { maxSizeMB = 5, onImage } = {}) {
-    const input = zone.querySelector('[data-upload-input]');
+    const field = zone.closest('.admin-logo-field') || zone;
+    const input = field.querySelector('[data-upload-input]');
     const preview = zone.querySelector('[data-upload-preview]');
     const state = { file: null, dataUrl: null };
 
@@ -359,11 +360,11 @@ async function buildItemForm(row = {}) {
             </div>
             <div class="full-width admin-logo-field">
                 <span class="admin-field-label">Image (JPG, PNG or WebP &mdash; max 5MB)</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" data-upload-input aria-hidden="true" tabindex="-1">
                 <div class="admin-upload-zone" data-upload-zone tabindex="0" role="button" aria-label="Upload item image">
-                    <input type="file" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" data-upload-input aria-hidden="true" tabindex="-1">
                     <i data-lucide="cloud-upload" aria-hidden="true"></i>
                     <span>Drag &amp; drop an image here, or <strong>browse</strong></span>
-                    <img class="admin-upload-preview hidden" data-upload-preview alt="Item image preview">
+                    <img class="admin-upload-preview hidden" data-upload-preview src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Item image preview">
                 </div>
             </div>
             <div class="admin-form-actions">
@@ -1308,7 +1309,8 @@ async function renderSettings() {
 function initSettingsLogoUpload() {
     const zone = document.getElementById('settings-logo-zone');
     if (!zone) return;
-    const input = zone.querySelector('#settings-logo-input');
+    const field = zone.closest('.admin-logo-field') || document;
+    const input = field.querySelector('#settings-logo-input');
     const preview = zone.querySelector('#settings-logo-preview');
     if (!input || !preview) return;
     let logoDataUrl = '';

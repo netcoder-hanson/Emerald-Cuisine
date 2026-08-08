@@ -6,7 +6,7 @@
         "description": "Creamy pap with bread, akara, milk and sweet brown sugar or honey.",
         "price": 8500,
         "rating": 4.6,
-        "image": "images/categories/akara & pap.jpg"
+        "image": "images/categories/akara-and-pap.jpg"
     },
     {
         "id": "breakfast2",
@@ -15,7 +15,7 @@
         "description": "Eggs, sausage, beans, grilled tomato and toast for a hearty morning.",
         "price": 16000,
         "rating": 4.7,
-        "image": "images/categories/Eggs, sausage, beans, grilled tomato and toast.jpg"
+        "image": "images/categories/eggs-sausage-beans-grilled-tomato-toast.jpg"
     },
     {
         "id": "breakfast3",

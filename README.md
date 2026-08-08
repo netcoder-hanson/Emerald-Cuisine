@@ -6,6 +6,17 @@ Built as a **static site with no framework and no build step** — plain HTML, C
 
 ---
 
+## Recent Changes (HTML Validation Fixes)
+
+- Renamed category image files to remove spaces and illegal characters (e.g. `Barbecue Chicken Platter.jpg` → `barbecue-chicken-platter.jpg`)
+- Updated all `src` references in `index.html`, `js/order.js`, `js/utils/menu.js` and `data/menu.json` to use the new filenames
+- Changed second `<main>` in `admin.html` to `<section>` to fix duplicate main element error
+- Moved `<input type="file">` outside the `role="button"` upload zone in admin settings and item forms
+- Added `src` attribute to `<img>` elements that were missing it (lightbox preview, logo preview)
+- Updated `js/admin.js` to find the file input in its new DOM position
+
+---
+
 ## Features
 
 - **Online ordering** — browse menu categories, add items to cart, pick delivery or pickup

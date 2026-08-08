@@ -74,7 +74,7 @@
         </form>
     </main>
 
-    <main id="admin-dashboard" class="admin-view hidden">
+    <section id="admin-dashboard" class="admin-view hidden" aria-label="Admin dashboard">
         <div class="admin-container">
             <p id="admin-config-warning" class="admin-warning hidden">
                 <i data-lucide="triangle-alert" aria-hidden="true"></i>
@@ -199,11 +199,11 @@
                         </label>
                         <div class="full-width admin-logo-field">
                             <span class="admin-field-label">Logo</span>
+                            <input type="file" id="settings-logo-input" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" aria-hidden="true" tabindex="-1">
                             <div class="admin-upload-zone" id="settings-logo-zone" tabindex="0" role="button" aria-label="Upload logo image">
-                                <input type="file" id="settings-logo-input" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" aria-hidden="true" tabindex="-1">
                                 <i data-lucide="cloud-upload" aria-hidden="true"></i>
                                 <span>Drag &amp; drop a logo, or <strong>browse</strong> (JPG/PNG/WebP, max 5MB)</span>
-                                <img id="settings-logo-preview" class="admin-upload-preview hidden" alt="Logo preview">
+                                <img id="settings-logo-preview" class="admin-upload-preview hidden" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Logo preview">
                             </div>
                         </div>
                     </div>
@@ -311,7 +311,7 @@
                 </section>
             </section>
         </div>
-    </main>
+    </section>
     </div>
 
     <div id="admin-modal" class="admin-modal" aria-hidden="true">

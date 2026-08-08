@@ -13,12 +13,12 @@ const imageDictionary = [
     },
     {
         keywords: ['full english'],
-        src: 'images/categories/Eggs, sausage, beans, grilled tomato and toast.jpg',
+        src: 'images/categories/eggs-sausage-beans-grilled-tomato-toast.jpg',
         alt: 'Full English breakfast with eggs and sausage'
     },
     {
         keywords: ['custard', 'akamu', 'akara', 'breakfast', 'eggs'],
-        src: 'images/categories/akara & pap.jpg',
+        src: 'images/categories/akara-and-pap.jpg',
         alt: 'Akara and pap, a classic Nigerian breakfast'
     },
     {
