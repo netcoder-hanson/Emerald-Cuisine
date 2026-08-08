@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Check HTML
         uses: Cyb3r-Jak3/html5validator-action@v7.2.0
