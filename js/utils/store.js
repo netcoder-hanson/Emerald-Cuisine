@@ -36,6 +36,22 @@ export function generateSecureOrderNumber() {
 }
 
 /**
+ * Generate a cryptographically secure tracking token.
+ * Format: 32-char hex string (16 bytes).
+ */
+export function generateTrackingToken() {
+    const array = new Uint8Array(16);
+    if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+        crypto.getRandomValues(array);
+    } else {
+        for (let i = 0; i < 16; i++) {
+            array[i] = Math.floor(Math.random() * 256);
+        }
+    }
+    return Array.from(array).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
  * Legacy order number generation (for backward compatibility).
  * @deprecated Use generateSecureOrderNumber() instead.
  */
@@ -195,6 +211,7 @@ export async function saveOrder(order, options = {}) {
     const user = getCurrentUser();
     const localOrder = {
         order_number: order.orderNumber,
+        tracking_token: order.trackingToken || generateTrackingToken(),
         customer_id: user?.id || null,
         customer_name: order.fullName,
         phone: order.phone,
@@ -263,6 +280,7 @@ export async function getOrder(orderNumber, options = {}) {
             const row = rows[0];
             return {
                 orderNumber: row.order_number,
+                trackingToken: row.tracking_token,
                 estimatedTime: row.delivery_type === 'pickup' ? 'Ready in 20-30 mins' : 'Estimated delivery in 40-55 mins',
                 fullName: row.customer_name,
                 phone: row.phone,
@@ -294,6 +312,7 @@ export async function getOrder(orderNumber, options = {}) {
                 // Return with isDatabaseOrder: false to indicate this is NOT confirmed
                 return {
                     orderNumber: row.order_number,
+                    trackingToken: null,
                     estimatedTime: row.delivery_type === 'pickup' ? 'Ready in 20-30 mins' : 'Estimated delivery in 40-55 mins',
                     fullName: row.customer_name,
                     phone: row.phone,

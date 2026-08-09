@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.send-order-email]
 verify_jwt = false
+
+[functions.track-order]
+verify_jwt = false

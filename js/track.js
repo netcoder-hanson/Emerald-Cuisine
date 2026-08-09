@@ -1,9 +1,10 @@
 import CONFIG from './config.js';
-import { getOrder, addReview } from './utils/store.js';
+import { addReview } from './utils/store.js';
 import { escapeHtml } from './utils/cart.js';
 
 const params = new URLSearchParams(window.location.search);
 const orderNumber = params.get('order');
+const trackingToken = params.get('token');
 
 const TOTAL_ETA = 45 * 60; // seconds for delivery
 const STAGES = [
@@ -156,21 +157,40 @@ function render(order, createdAtMs, restaurant) {
     document.getElementById('review-panel').classList.toggle('hidden', stage < 3);
 }
 
+async function trackOrder(orderNumber, trackingToken) {
+    const functionsUrl = CONFIG.supabase.functionsBaseUrl;
+    if (!functionsUrl) return null;
+    try {
+        const response = await fetch(`${functionsUrl}/track-order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_number: orderNumber, tracking_token: trackingToken })
+        });
+        if (!response.ok) return null;
+        return await response.json();
+    } catch {
+        return null;
+    }
+}
+
 async function load() {
     const card = document.getElementById('track-card');
     const heroOrder = document.getElementById('track-hero-order');
 
-    if (!orderNumber) {
-        heroOrder.textContent = 'Please provide an order number to track.';
+    if (!orderNumber || !trackingToken) {
+        heroOrder.textContent = 'Please provide your order number and tracking token to track.';
         const lookupForm = document.getElementById('track-lookup-form');
         if (lookupForm) {
             lookupForm.hidden = false;
+            // Pre-fill order number if available
+            const input = document.getElementById('track-lookup-input');
+            if (input && orderNumber) input.value = orderNumber;
             lookupForm.addEventListener('submit', event => {
                 event.preventDefault();
-                const input = document.getElementById('track-lookup-input');
-                const value = input?.value.trim();
-                if (value) {
-                    window.location.href = `track.html?order=${encodeURIComponent(value)}`;
+                const num = document.getElementById('track-lookup-input')?.value.trim();
+                const tok = document.getElementById('track-lookup-token')?.value.trim();
+                if (num && tok) {
+                    window.location.href = `track.html?order=${encodeURIComponent(num)}&token=${encodeURIComponent(tok)}`;
                 }
             });
         }
@@ -178,10 +198,9 @@ async function load() {
     }
 
     let order = null;
-    if (orderNumber) {
+    if (orderNumber && trackingToken) {
         try {
-            // ALWAYS query database first (no localStorage fallback)
-            order = await getOrder(orderNumber);
+            order = await trackOrder(orderNumber, trackingToken);
         } catch (error) {
             console.error('Failed to load order:', error);
             heroOrder.textContent = 'We could not load that order right now. Please try again.';
@@ -194,28 +213,41 @@ async function load() {
         card.innerHTML = `
             <p class="menu-empty">We could not find this order in our system.</p>
             <p class="menu-empty" style="margin-top: 16px;">
-                Please check your order number and try again, or contact us for assistance.
+                Please check your order number and tracking token, or contact us for assistance.
             </p>
             <a href="order.html" class="btn btn-primary" style="margin-top: 24px;">Place a New Order</a>
         `;
         return;
     }
 
-    heroOrder.textContent = `Order ${order.orderNumber} · ${order.fullName}`;
+    // Map Edge Function response to rendering format
+    const orderData = {
+        orderNumber: order.order_number,
+        status: order.status,
+        deliveryType: order.delivery_type,
+        estimatedTime: order.estimated_time,
+        items: order.items,
+        total: order.total,
+        address: order.address,
+        createdAt: order.created_at,
+        fullName: 'Your order'
+    };
+
+    heroOrder.textContent = `Order ${orderData.orderNumber}`;
 
     const restaurant = CONFIG.restaurantLocation;
     let client = restaurant;
-    if (order.deliveryType !== 'pickup') {
-        const geocoded = await geocode(order.address);
+    if (orderData.deliveryType !== 'pickup') {
+        const geocoded = await geocode(orderData.address);
         client = geocoded || { lat: restaurant.lat + 0.015, lng: restaurant.lng + 0.015 };
     }
 
     card.innerHTML = `
         <div class="track-head">
             <div>
-                <span class="eyebrow">Order #${escapeHtml(order.orderNumber)}</span>
+                <span class="eyebrow">Order #${escapeHtml(orderData.orderNumber)}</span>
                 <h2 id="t-status-title">Loading...</h2>
-                <p id="track-delivery-to">Delivering to ${escapeHtml(order.address)}</p>
+                <p id="track-delivery-to">Delivering to ${escapeHtml(orderData.address)}</p>
             </div>
             <div class="track-eta" id="t-eta">...</div>
         </div>
@@ -226,9 +258,9 @@ async function load() {
             <h3>Enjoyed your meal?</h3>
             <p>Leave a review for your order.</p>
             <form id="review-form" novalidate>
-                <input type="hidden" name="order_number" value="${escapeHtml(order.orderNumber)}">
+                <input type="hidden" name="order_number" value="${escapeHtml(orderData.orderNumber)}">
                 <label>Name
-                    <input type="text" name="name" value="${escapeHtml(order.fullName)}" required>
+                    <input type="text" name="name" required>
                 </label>
                 <label>Rating
                     <select name="rating" required>
@@ -260,7 +292,7 @@ async function load() {
         }
     }
 
-    const createdAt = order.createdAt || order.created_at;
+    const createdAt = orderData.createdAt;
     let createdAtMs = createdAt ? new Date(createdAt).getTime() : NaN;
     if (!Number.isFinite(createdAtMs)) createdAtMs = Date.now();
 
@@ -285,7 +317,7 @@ async function load() {
                     customer_name: name,
                     rating,
                     comment,
-                    order_number: order.orderNumber
+                    order_number: orderData.orderNumber
                 });
                 message.textContent = 'Thank you for your review!';
                 message.style.color = 'var(--jade)';
@@ -300,8 +332,8 @@ async function load() {
         });
     }
 
-    render(order, createdAtMs, restaurant);
-    refreshTimer = setInterval(() => render(order, createdAtMs, restaurant), 5000);
+    render(orderData, createdAtMs, restaurant);
+    refreshTimer = setInterval(() => render(orderData, createdAtMs, restaurant), 5000);
 }
 
 load();

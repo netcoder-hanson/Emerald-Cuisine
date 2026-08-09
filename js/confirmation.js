@@ -56,7 +56,7 @@ async function render() {
         itemsEl.appendChild(row);
     });
 
-    document.getElementById('track-btn').href = `track.html?order=${order.orderNumber}`;
+    document.getElementById('track-btn').href = `track.html?order=${order.orderNumber}${order.trackingToken ? `&token=${order.trackingToken}` : ''}`;
 
     // Show notice if this is a localStorage-only order (should not happen with new code)
     if (order.isDatabaseOrder === false) {

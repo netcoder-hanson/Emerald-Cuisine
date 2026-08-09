@@ -1,5 +1,5 @@
 import CONFIG from './config.js';
-import { isSupabaseConfigured } from './utils/supabase.js';
+import { isSupabaseConfigured, getSupabaseClient } from './utils/supabase.js';
 import {
     fetchRows, insertRow, updateRow, deleteRow, countRows, fetchRowsIn,
     uploadImage, invokeEdgeFunction, toCSV, downloadBlob,
@@ -7,15 +7,20 @@ import {
 } from './utils/store.js';
 import { CATEGORY_SLUGS } from './utils/menu.js';
 import { escapeHtml, formatPrice } from './utils/cart.js';
-import { getAdminCredentials, saveAdminCredentials, isAdminCredentials } from './utils/admin.js';
+import { signIn, signOut, getUser } from './utils/supabase-auth.js';
+import { getCurrentUser } from './utils/auth.js';
 
 const loginView = document.getElementById('admin-login');
 const dashboard = document.getElementById('admin-dashboard');
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
 
-function isLoggedIn() {
-    return sessionStorage.getItem('emeraldAdmin') === '1';
+async function isLoggedIn() {
+    const user = await getUser();
+    if (!user) return false;
+    // Check if the user is an admin via customers table
+    const profile = await getCurrentUser();
+    return profile?.isAdmin === true;
 }
 
 function showDashboard() {
@@ -25,8 +30,8 @@ function showDashboard() {
     initAdminCredentialsForm();
 }
 
-document.getElementById('logout-btn').addEventListener('click', () => {
-    sessionStorage.removeItem('emeraldAdmin');
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    await signOut();
     window.location.reload();
 });
 
@@ -1483,11 +1488,11 @@ const adminCredentialsForm = document.getElementById('admin-credentials-form');
 
 function initAdminCredentialsForm() {
     if (!adminCredentialsForm) return;
-    const creds = getAdminCredentials() || {};
-    const usernameInput = adminCredentialsForm.querySelector('[name="adminUsername"]');
-    const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
-    if (usernameInput) usernameInput.value = creds.username || '';
-    if (emailInput) emailInput.value = creds.email || '';
+    // Pre-fill current admin email from Supabase Auth
+    getUser().then(user => {
+        const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
+        if (emailInput && user?.email) emailInput.value = user.email;
+    });
 
     adminCredentialsForm.addEventListener('submit', async event => {
         event.preventDefault();
@@ -1495,14 +1500,12 @@ function initAdminCredentialsForm() {
         const data = new FormData(adminCredentialsForm);
         const currentPassword = String(data.get('currentPassword') || '');
         const newPassword = String(data.get('newPassword') || '').trim();
-        const newUsername = String(data.get('adminUsername') || '').trim();
-        const newEmail = String(data.get('adminEmail') || '').trim();
 
         message.textContent = '';
         message.classList.remove('error');
 
-        if (!(await isAdminCredentials(creds.username, currentPassword))) {
-            message.textContent = 'Current password is incorrect.';
+        if (!currentPassword || !newPassword) {
+            message.textContent = 'Please enter your current password and a new password.';
             message.classList.add('error');
             return;
         }
@@ -1511,17 +1514,43 @@ function initAdminCredentialsForm() {
             message.classList.add('error');
             return;
         }
-        if (!(await saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail }))) {
-            message.textContent = 'Please enter a valid username and password.';
+
+        // Re-authenticate then update password via Supabase Auth
+        try {
+            const user = await getUser();
+            if (!user?.email) {
+                message.textContent = 'Could not verify your account. Please sign in again.';
+                message.classList.add('error');
+                return;
+            }
+            const client = getSupabaseClient();
+            if (!client) {
+                message.textContent = 'Supabase is not configured.';
+                message.classList.add('error');
+                return;
+            }
+            // Re-sign-in to verify current password
+            const { error: authError } = await signIn(user.email, currentPassword);
+            if (authError) {
+                message.textContent = 'Current password is incorrect.';
+                message.classList.add('error');
+                return;
+            }
+            // Update password
+            const { error: updateError } = await client.auth.updateUser({ password: newPassword });
+            if (updateError) {
+                message.textContent = updateError.message || 'Could not update password.';
+                message.classList.add('error');
+                return;
+            }
+            adminCredentialsForm.reset();
+            message.textContent = 'Password updated successfully.';
+            message.classList.remove('error');
+            showToast('Password updated.');
+        } catch (err) {
+            message.textContent = 'Could not update password. Please try again.';
             message.classList.add('error');
-            return;
         }
-        adminCredentialsForm.reset();
-        usernameInput.value = newUsername;
-        emailInput.value = newEmail;
-        message.textContent = 'Admin credentials updated. Use them on your next sign-in.';
-        message.classList.remove('error');
-        showToast('Admin credentials updated.');
     });
 }
 
@@ -1544,19 +1573,32 @@ function initDashboard() {
 // above is initialised by now, so both the logged-in and login paths work.
 refreshIcons();
 
-if (isLoggedIn()) {
-    showDashboard();
-} else {
-    loginForm.addEventListener('submit', async event => {
-        event.preventDefault();
-        const username = loginForm.querySelector('input[name="username"]').value;
-        const password = loginForm.querySelector('input[name="password"]').value;
-        if (await isAdminCredentials(username, password)) {
-            sessionStorage.setItem('emeraldAdmin', '1');
-            showDashboard();
-        } else {
-            loginError.textContent = 'Incorrect username or password. Please try again.';
-        }
-    });
-}
+(async () => {
+    if (await isLoggedIn()) {
+        showDashboard();
+    } else {
+        loginForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            const email = loginForm.querySelector('input[name="username"]').value;
+            const password = loginForm.querySelector('input[name="password"]').value;
+            try {
+                const { user, error } = await signIn(email, password);
+                if (error || !user) {
+                    loginError.textContent = 'Incorrect email or password. Please try again.';
+                    return;
+                }
+                // Verify admin status
+                const profile = await getCurrentUser();
+                if (!profile?.isAdmin) {
+                    loginError.textContent = 'You do not have admin access. Please contact the owner.';
+                    await signOut();
+                    return;
+                }
+                showDashboard();
+            } catch (err) {
+                loginError.textContent = 'Incorrect email or password. Please try again.';
+            }
+        });
+    }
+})();
 

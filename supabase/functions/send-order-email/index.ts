@@ -62,7 +62,7 @@ function buildOrderHtml(order, recipientType, unsubscribeUrl) {
               Total: ₦${Number(order.total).toLocaleString()}
             </p>
             ${order.estimatedTime ? `<p style="font-size:14px;color:#6B6B6B;margin:0 0 6px;">${escapeHtml(order.estimatedTime)}</p>` : ''}
-            ${recipientType === 'customer' && SITE_URL ? `<p style="font-size:14px;color:#6B6B6B;margin:0 0 24px;"><a href="${SITE_URL}/track.html?order=${encodeURIComponent(order.orderNumber)}" style="color:#0F7A5A;">Track your order</a></p>` : ''}
+            ${recipientType === 'customer' && SITE_URL ? `<p style="font-size:14px;color:#6B6B6B;margin:0 0 24px;"><a href="${SITE_URL}/track.html?order=${encodeURIComponent(order.orderNumber)}${order.trackingToken ? `&token=${encodeURIComponent(order.trackingToken)}` : ''}" style="color:#0F7A5A;">Track your order</a></p>` : ''}
           </td>
         </tr>
         <tr>

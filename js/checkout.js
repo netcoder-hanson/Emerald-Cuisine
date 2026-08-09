@@ -139,7 +139,11 @@ if (checkoutForm) {
 
         try {
             // Save with cart preservation for recovery
-            await saveOrder(orderData, { preserveCartOnError: true });
+            const savedRow = await saveOrder(orderData, { preserveCartOnError: true });
+            // Capture the tracking token from the saved row for emails/confirmation
+            if (savedRow?.tracking_token) {
+                orderData.trackingToken = savedRow.tracking_token;
+            }
         } catch (error) {
             message.textContent = error.message || 'We could not save your order. Please check your connection and try again. Your cart has been preserved for retry.';
             message.classList.add('error');

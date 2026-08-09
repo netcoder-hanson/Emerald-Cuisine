@@ -1,327 +1,233 @@
+// ============================================================
+// Authentication — Supabase Auth integration
+// ============================================================
+// Replaces the legacy custom auth system (username/password,
+// localStorage sessions) with Supabase Auth (email/password).
+//
+// getCurrentUser() returns a lightweight profile object:
+//   { id, name, email, username, address, useAsDeliveryAddress, isAdmin }
+// ============================================================
+
 import { getSupabaseClient } from './supabase.js';
+import {
+    getUser as sbGetUser,
+    getSession as sbGetSession,
+    signIn as sbSignIn,
+    signUp as sbSignUp,
+    signOut as sbSignOut,
+    onAuthStateChange as sbOnAuthStateChange
+} from './supabase-auth.js';
 
-const PERSISTENT_AUTH_KEY = 'emeraldAuthUser';
-const SESSION_AUTH_KEY = 'emeraldAuthUserSession';
+// ------------------------------------------------------------
+// Profile helpers
+// ------------------------------------------------------------
 
-function saveAuthSession(sessionUser, rememberMe = false) {
-    try {
-        if (rememberMe) {
-            localStorage.setItem(PERSISTENT_AUTH_KEY, JSON.stringify(sessionUser));
-            sessionStorage.removeItem(SESSION_AUTH_KEY);
-        } else {
-            sessionStorage.setItem(SESSION_AUTH_KEY, JSON.stringify(sessionUser));
-            localStorage.removeItem(PERSISTENT_AUTH_KEY);
-        }
-    } catch {
-        // Storage unavailable — silently continue without persistence.
-    }
+function buildProfile(customer, authUser) {
+    if (!customer && !authUser) return null;
+    const email = (customer?.email || authUser?.email || '').trim().toLowerCase();
+    const name = customer?.name || email.split('@')[0] || 'User';
+    return {
+        id: customer?.id || null,
+        name,
+        email,
+        username: customer?.username || '',
+        address: customer?.address || '',
+        useAsDeliveryAddress: Boolean(customer?.use_as_delivery_address),
+        isAdmin: Boolean(customer?.is_admin)
+    };
 }
 
-function clearAuthSession() {
+/**
+ * Fetch or create the customers row for the given Supabase Auth user.
+ * When no row exists, one is created (RLS customers_insert_self allows it).
+ * @returns {Promise<object|null>} customers row, or null if Supabase unavailable
+ */
+async function ensureCustomerProfile(authUser) {
+    if (!authUser?.id) return null;
+    const client = getSupabaseClient();
+    if (!client) return null;
+
+    // Try to read existing row
+    const { data: existing, error: fetchError } = await client
+        .from('customers')
+        .select('*')
+        .eq('auth_user_id', authUser.id)
+        .maybeSingle();
+
+    if (fetchError) {
+        console.error('Failed to fetch customer profile:', fetchError);
+        return null;
+    }
+
+    if (existing) return existing;
+
+    // No row — create one (new registration)
+    const email = (authUser.email || '').trim().toLowerCase();
+    const displayName = authUser.user_metadata?.name
+        || authUser.user_metadata?.username
+        || email.split('@')[0]
+        || 'User';
+    const username = authUser.user_metadata?.username || email.split('@')[0];
+    const address = authUser.user_metadata?.address || '';
+    const useAsDelivery = authUser.user_metadata?.useAsDeliveryAddress || false;
+
+    const { data: created, error: insertError } = await client
+        .from('customers')
+        .insert({
+            auth_user_id: authUser.id,
+            email,
+            name: displayName,
+            username,
+            address,
+            use_as_delivery_address: useAsDelivery
+        })
+        .select()
+        .single();
+
+    if (insertError) {
+        console.error('Failed to create customer profile:', insertError);
+        return null;
+    }
+
+    return created;
+}
+
+// ------------------------------------------------------------
+// Synchronous cache for getCurrentUser()
+// ------------------------------------------------------------
+
+let _cachedUser = null;
+let _cacheInitialized = false;
+
+/**
+ * Initialize the cache from the current Supabase Auth session.
+ * Called once on module load and on auth state changes.
+ */
+async function _initCache() {
+    const session = await sbGetSession();
+    if (session?.user) {
+        const customer = await ensureCustomerProfile(session.user);
+        _cachedUser = buildProfile(customer, session.user);
+    } else {
+        _cachedUser = null;
+    }
+    _cacheInitialized = true;
+}
+
+// Listen for auth state changes to keep cache updated
+sbOnAuthStateChange(async () => {
+    const session = await sbGetSession();
+    if (session?.user) {
+        const customer = await ensureCustomerProfile(session.user);
+        _cachedUser = buildProfile(customer, session.user);
+    } else {
+        _cachedUser = null;
+    }
+});
+
+// Initialize cache on module load
+_initCache();
+
+// ------------------------------------------------------------
+// Public API
+// ------------------------------------------------------------
+
+/**
+ * Get the current authenticated user's profile (synchronous, cached).
+ * Returns null when no Supabase Auth session exists.
+ * @returns {object|null}
+ */
+export function getCurrentUser() {
+    return _cachedUser;
+}
+
+/**
+ * Restore an existing Supabase Auth session (called on page load).
+ * Now handled by the cache initialization — returns the cached user.
+ * @returns {object|null}
+ */
+export function restoreSession() {
+    return _cachedUser;
+}
+
+/**
+ * Sign in with email/password. If the credentials are not found,
+ * attempts to sign up instead.
+ * @param {Object} params
+ * @param {string} params.email
+ * @param {string} params.password
+ * @param {string} [params.name] - Display name (used on sign-up)
+ * @param {string} [params.address] - Delivery address (used on sign-up)
+ * @param {boolean} [params.useAsDeliveryAddress]
+ * @returns {Promise<object>} User profile
+ * @throws {Error} On auth failure
+ */
+export async function loginOrRegister({
+    email,
+    password,
+    name = '',
+    address = '',
+    useAsDeliveryAddress = false
+}) {
+    const trimmedEmail = String(email || '').trim().toLowerCase();
+    const trimmedPassword = String(password || '').trim();
+
+    if (!trimmedEmail || !trimmedPassword) {
+        throw new Error('Please enter your email and password.');
+    }
+
+    // Try sign-in first
+    const signInResult = await sbSignIn(trimmedEmail, trimmedPassword);
+    if (signInResult.user) {
+        return getCurrentUser();
+    }
+
+    // Sign-in failed — try sign-up
+    const signUpResult = await sbSignUp(trimmedEmail, trimmedPassword, {
+        metadata: {
+            name: name || trimmedEmail.split('@')[0],
+            username: name || trimmedEmail.split('@')[0],
+            address,
+            useAsDeliveryAddress
+        }
+    });
+
+    if (signUpResult.error) {
+        // If signUp says "already registered", try signIn once more
+        if (signUpResult.error.includes('already') || signUpResult.error.includes('registered')) {
+            const retry = await sbSignIn(trimmedEmail, trimmedPassword);
+            if (retry.user) return getCurrentUser();
+        }
+        throw new Error(signUpResult.error || 'Could not create your account. Please try again.');
+    }
+
+    // Sign-up succeeded — build profile
+    const authUser = await sbGetUser();
+    if (!authUser) {
+        throw new Error('Account created but could not retrieve session. Please sign in.');
+    }
+
+    const customer = await ensureCustomerProfile(authUser);
+    return buildProfile(customer, authUser);
+}
+
+/**
+ * Sign out the current user and clear local auth state.
+ */
+export async function logoutUser() {
+    await sbSignOut();
     try {
-        localStorage.removeItem(PERSISTENT_AUTH_KEY);
-        sessionStorage.removeItem(SESSION_AUTH_KEY);
+        localStorage.removeItem('emeraldOrders');
     } catch {
         // Storage unavailable.
     }
 }
 
-function normalizeEmail(email) {
-    return String(email || '').trim().toLowerCase();
-}
-
-function normalizePassword(password) {
-    return String(password || '').trim();
-}
-
-export async function hashPassword(value) {
-    const normalized = normalizePassword(value);
-    const encoder = new TextEncoder();
-    const data = encoder.encode(`${normalized}::emerald-cuisine`);
-    if (typeof crypto !== 'undefined' && crypto.subtle && typeof crypto.subtle.digest === 'function') {
-        const digest = await crypto.subtle.digest('SHA-256', data);
-        return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
-    }
-    // Non-secure context fallback (crypto.subtle unavailable over plain HTTP).
-    let hash = 0;
-    const str = new TextDecoder().decode(data);
-    for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
-    }
-    return `legacy-${(hash >>> 0).toString(16)}`;
-}
-
-async function verifyPassword(storedPassword, suppliedPassword) {
-    if (!storedPassword) return false;
-    if (storedPassword === normalizePassword(suppliedPassword)) return true;
-    if (typeof storedPassword === 'string' && (/^[a-f0-9]{64}$/i.test(storedPassword) || storedPassword.startsWith('legacy-'))) {
-        return storedPassword === await hashPassword(suppliedPassword);
-    }
-    return false;
-}
-
-function buildSessionUser(user) {
-    if (!user) return null;
-    return {
-        id: user.id,
-        name: user.name || 'New user',
-        email: user.email,
-        username: user.username || '',
-        address: user.address || '',
-        useAsDeliveryAddress: Boolean(user.useAsDeliveryAddress),
-        sessionToken: user.sessionToken || null,
-        rememberMe: Boolean(user.rememberMe)
-    };
-}
-
-export function getCurrentUser() {
-    try {
-        const stored = localStorage.getItem(PERSISTENT_AUTH_KEY) || sessionStorage.getItem(SESSION_AUTH_KEY) || 'null';
-        return buildSessionUser(JSON.parse(stored));
-    } catch {
-        return null;
-    }
-}
-
-export function logoutUser() {
-    clearAuthSession();
-}
-
-export async function restoreSession() {
-    const storedUser = getCurrentUser();
-    if (!storedUser?.sessionToken) return storedUser;
-
-    const client = getSupabaseClient();
-    if (!client) return storedUser;
-
-    try {
-        const { data, error } = await client
-            .from('customers')
-            .select('id,name,email,username,address,use_as_delivery_address,session_token')
-            .eq('session_token', storedUser.sessionToken)
-            .maybeSingle();
-
-        if (error || !data) {
-            clearAuthSession();
-            return null;
-        }
-
-        const restoredUser = buildSessionUser({
-            id: data.id,
-            name: data.name,
-            email: data.email,
-            username: data.username,
-            address: data.address,
-            useAsDeliveryAddress: data.use_as_delivery_address,
-            sessionToken: data.session_token,
-            rememberMe: Boolean(storedUser.rememberMe)
-        });
-
-        saveAuthSession(restoredUser, restoredUser.rememberMe);
-        return restoredUser;
-    } catch {
-        return storedUser;
-    }
-}
-
-// True when an account already uses the given email. Used by the sign-up
-// flow to offer "update" or "replace" when a legacy email-only account
-// exists in Supabase.
-export async function findExistingByEmail(email) {
-    const normalizedEmail = normalizeEmail(email);
-    if (!normalizedEmail) return null;
-
-    const client = getSupabaseClient();
-    let supabase = null;
-    if (client) {
-        try {
-            const { data, error } = await client
-                .from('customers')
-                .select('*')
-                .eq('email', normalizedEmail)
-                .maybeSingle();
-            if (!error && data) supabase = data;
-        } catch {
-            supabase = null;
-        }
-    }
-
-    if (!supabase) return null;
-    return { local: null, supabase };
-}
-
-export async function loginOrRegister({
-    username,
-    email,
-    address,
-    useAsDeliveryAddress = false,
-    password,
-    rememberMe = false,
-    conflictMode = null
-}) {
-    const normalizedUsername = String(username || '').trim();
-    const normalizedEmail = normalizeEmail(email);
-    const trimmedPassword = normalizePassword(password);
-    const trimmedAddress = String(address || '').trim();
-
-    if (!normalizedUsername || !trimmedPassword) {
-        throw new Error('Please enter your username and password.');
-    }
-
-    const hashedPassword = await hashPassword(trimmedPassword);
-    const sessionToken = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-    const client = getSupabaseClient();
-    if (!client) {
-        throw new Error('Supabase is not configured. Cannot authenticate users.');
-    }
-
-    try {
-        const { data: lookup, error: lookupError } = await client
-            .from('customers')
-            .select('*')
-            .eq('username', normalizedUsername)
-            .maybeSingle();
-
-        if (lookupError) {
-            throw lookupError;
-        }
-
-        if (lookup) {
-            // Sign-in path: the username exists.
-            const passwordMatches = await verifyPassword(lookup.password_hash || lookup.password || '', trimmedPassword);
-            if (!passwordMatches) {
-                throw new Error('Wrong password for this username.');
-            }
-
-            const { error: updateError } = await client
-                .from('customers')
-                .update({
-                    session_token: sessionToken,
-                    remember_me: Boolean(rememberMe),
-                    last_seen: new Date().toISOString()
-                })
-                .eq('id', lookup.id);
-
-            if (updateError) {
-                throw updateError;
-            }
-
-            const sessionUser = buildSessionUser({
-                id: lookup.id,
-                name: lookup.name,
-                email: lookup.email,
-                username: lookup.username,
-                address: lookup.address || '',
-                useAsDeliveryAddress: Boolean(lookup.use_as_delivery_address),
-                sessionToken,
-                rememberMe
-            });
-
-            saveAuthSession(sessionUser, rememberMe);
-            return sessionUser;
-        } else if (normalizedEmail) {
-            // Sign-up path: no username match — resolve any legacy
-            // account that already uses this email first.
-            const { data: conflictRow, error: conflictError } = await client
-                .from('customers')
-                .select('id')
-                .eq('email', normalizedEmail)
-                .maybeSingle();
-
-            if (conflictError) {
-                throw conflictError;
-            }
-
-            if (conflictRow && conflictMode === 'replace') {
-                const { error: deleteError } = await client
-                    .from('customers')
-                    .delete()
-                    .eq('id', conflictRow.id);
-                if (deleteError) {
-                    throw deleteError;
-                }
-            } else if (conflictRow && conflictMode === 'update') {
-                const { error: updateError } = await client
-                    .from('customers')
-                    .update({
-                        name: normalizedUsername,
-                        username: normalizedUsername,
-                        address: trimmedAddress,
-                        use_as_delivery_address: Boolean(useAsDeliveryAddress),
-                        password_hash: hashedPassword,
-                        session_token: sessionToken,
-                        remember_me: Boolean(rememberMe),
-                        last_seen: new Date().toISOString()
-                    })
-                    .eq('id', conflictRow.id);
-
-                if (updateError) {
-                    throw updateError;
-                }
-
-                const { data: updated, error: fetchError } = await client
-                    .from('customers')
-                    .select('*')
-                    .eq('id', conflictRow.id)
-                    .maybeSingle();
-
-                if (fetchError || !updated) {
-                    throw new Error('Failed to fetch updated user');
-                }
-
-                const sessionUser = buildSessionUser({
-                    id: updated.id,
-                    name: updated.name,
-                    email: updated.email,
-                    username: updated.username,
-                    address: updated.address || '',
-                    useAsDeliveryAddress: Boolean(updated.use_as_delivery_address),
-                    sessionToken,
-                    rememberMe
-                });
-
-                saveAuthSession(sessionUser, rememberMe);
-                return sessionUser;
-            } else {
-                const { data: created, error: insertError } = await client
-                    .from('customers')
-                    .insert({
-                        name: normalizedUsername,
-                        username: normalizedUsername,
-                        email: normalizedEmail,
-                        address: trimmedAddress,
-                        use_as_delivery_address: Boolean(useAsDeliveryAddress),
-                        password_hash: hashedPassword,
-                        session_token: sessionToken,
-                        remember_me: Boolean(rememberMe),
-                        last_seen: new Date().toISOString()
-                    })
-                    .select()
-                    .single();
-
-                if (insertError) {
-                    throw insertError;
-                }
-
-                const sessionUser = buildSessionUser({
-                    id: created.id,
-                    name: created.name,
-                    email: created.email,
-                    username: created.username,
-                    address: created.address || '',
-                    useAsDeliveryAddress: Boolean(created.use_as_delivery_address),
-                    sessionToken,
-                    rememberMe
-                });
-
-                saveAuthSession(sessionUser, rememberMe);
-                return sessionUser;
-            }
-        } else {
-            throw new Error('No account found with that username. Please sign up first.');
-        }
-    } catch (error) {
-        throw error;
-    }
+/**
+ * Subscribe to auth state changes.
+ * @param {function} callback - Called with (event, session) on each change.
+ * @returns {{unsubscribe: function}}
+ */
+export function onAuthStateChange(callback) {
+    return sbOnAuthStateChange(callback);
 }
