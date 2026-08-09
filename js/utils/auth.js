@@ -47,7 +47,6 @@ async function ensureCustomerProfile(authUser) {
     const client = getSupabaseClient();
     if (!client) return null;
 
-    // Try to read existing row
     const { data: existing, error: fetchError } = await client
         .from('customers')
         .select('*')
@@ -61,7 +60,6 @@ async function ensureCustomerProfile(authUser) {
 
     if (existing) return existing;
 
-    // No row — create one (new registration)
     const email = (authUser.email || '').trim().toLowerCase();
     const displayName = authUser.user_metadata?.name
         || authUser.user_metadata?.username
@@ -99,34 +97,45 @@ async function ensureCustomerProfile(authUser) {
 let _cachedUser = null;
 let _cacheInitialized = false;
 
+async function _hydrateCache(authUser) {
+    if (!authUser) {
+        _cachedUser = null;
+        return null;
+    }
+
+    const customer = await ensureCustomerProfile(authUser);
+    _cachedUser = buildProfile(customer, authUser);
+    return _cachedUser;
+}
+
 /**
  * Initialize the cache from the current Supabase Auth session.
  * Called once on module load and on auth state changes.
  */
 async function _initCache() {
-    const session = await sbGetSession();
-    if (session?.user) {
-        const customer = await ensureCustomerProfile(session.user);
-        _cachedUser = buildProfile(customer, session.user);
-    } else {
+    try {
+        const session = await sbGetSession();
+        await _hydrateCache(session?.user || null);
+    } catch (error) {
+        console.error('Failed to initialize auth cache:', error);
         _cachedUser = null;
+    } finally {
+        _cacheInitialized = true;
     }
-    _cacheInitialized = true;
 }
 
-// Listen for auth state changes to keep cache updated
+const _cacheReadyPromise = _initCache();
+
+// Listen for auth state changes to keep cache updated.
 sbOnAuthStateChange(async () => {
-    const session = await sbGetSession();
-    if (session?.user) {
-        const customer = await ensureCustomerProfile(session.user);
-        _cachedUser = buildProfile(customer, session.user);
-    } else {
+    try {
+        const session = await sbGetSession();
+        await _hydrateCache(session?.user || null);
+    } catch (error) {
+        console.error('Failed to update auth cache:', error);
         _cachedUser = null;
     }
 });
-
-// Initialize cache on module load
-_initCache();
 
 // ------------------------------------------------------------
 // Public API
@@ -142,25 +151,27 @@ export function getCurrentUser() {
 }
 
 /**
+ * Wait until the initial Supabase session has been restored and the
+ * customer profile cache has been hydrated.
+ * @returns {Promise<object|null>}
+ */
+export function waitForAuthReady() {
+    return _cacheReadyPromise.then(() => _cachedUser);
+}
+
+/**
  * Restore an existing Supabase Auth session (called on page load).
- * Now handled by the cache initialization — returns the cached user.
- * @returns {object|null}
+ * This now waits for the initial auth cache hydration instead of
+ * returning immediately with a potentially stale null value.
+ * @returns {Promise<object|null>}
  */
 export function restoreSession() {
-    return _cachedUser;
+    return waitForAuthReady();
 }
 
 /**
  * Sign in with email/password. If the credentials are not found,
  * attempts to sign up instead.
- * @param {Object} params
- * @param {string} params.email
- * @param {string} params.password
- * @param {string} [params.name] - Display name (used on sign-up)
- * @param {string} [params.address] - Delivery address (used on sign-up)
- * @param {boolean} [params.useAsDeliveryAddress]
- * @returns {Promise<object>} User profile
- * @throws {Error} On auth failure
  */
 export async function loginOrRegister({
     email,
@@ -176,13 +187,13 @@ export async function loginOrRegister({
         throw new Error('Please enter your email and password.');
     }
 
-    // Try sign-in first
     const signInResult = await sbSignIn(trimmedEmail, trimmedPassword);
     if (signInResult.user) {
-        return getCurrentUser();
+        // Do not wait for the auth-state listener to update the cache.
+        // Hydrate it immediately so callers can use the returned profile.
+        return await _hydrateCache(signInResult.user);
     }
 
-    // Sign-in failed — try sign-up
     const signUpResult = await sbSignUp(trimmedEmail, trimmedPassword, {
         metadata: {
             name: name || trimmedEmail.split('@')[0],
@@ -193,22 +204,19 @@ export async function loginOrRegister({
     });
 
     if (signUpResult.error) {
-        // If signUp says "already registered", try signIn once more
         if (signUpResult.error.includes('already') || signUpResult.error.includes('registered')) {
             const retry = await sbSignIn(trimmedEmail, trimmedPassword);
-            if (retry.user) return getCurrentUser();
+            if (retry.user) return await _hydrateCache(retry.user);
         }
         throw new Error(signUpResult.error || 'Could not create your account. Please try again.');
     }
 
-    // Sign-up succeeded — build profile
     const authUser = await sbGetUser();
     if (!authUser) {
         throw new Error('Account created but could not retrieve session. Please sign in.');
     }
 
-    const customer = await ensureCustomerProfile(authUser);
-    return buildProfile(customer, authUser);
+    return await _hydrateCache(authUser);
 }
 
 /**
@@ -216,6 +224,7 @@ export async function loginOrRegister({
  */
 export async function logoutUser() {
     await sbSignOut();
+    _cachedUser = null;
     try {
         localStorage.removeItem('emeraldOrders');
     } catch {
@@ -225,8 +234,6 @@ export async function logoutUser() {
 
 /**
  * Subscribe to auth state changes.
- * @param {function} callback - Called with (event, session) on each change.
- * @returns {{unsubscribe: function}}
  */
 export function onAuthStateChange(callback) {
     return sbOnAuthStateChange(callback);
