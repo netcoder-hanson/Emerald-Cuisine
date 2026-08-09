@@ -4,6 +4,45 @@ import { getOrder } from './utils/store.js';
 const params = new URLSearchParams(window.location.search);
 const orderNumber = params.get('order');
 
+function initCopyButton(token) {
+    const btn = document.getElementById('copy-token-btn');
+    if (!btn) return;
+
+    btn.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(token);
+            btn.classList.add('copied');
+            btn.querySelector('.copy-label').textContent = 'Copied!';
+            setTimeout(() => {
+                btn.classList.remove('copied');
+                btn.querySelector('.copy-label').textContent = 'Copy';
+            }, 2000);
+        } catch {
+            // Fallback for older browsers or insecure contexts
+            const textarea = document.createElement('textarea');
+            textarea.value = token;
+            textarea.style.cssText = 'position:fixed;left:-9999px;top:-9999px;';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                btn.classList.add('copied');
+                btn.querySelector('.copy-label').textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.querySelector('.copy-label').textContent = 'Copy';
+                }, 2000);
+            } catch {
+                btn.querySelector('.copy-label').textContent = 'Failed';
+                setTimeout(() => {
+                    btn.querySelector('.copy-label').textContent = 'Copy';
+                }, 2000);
+            }
+            textarea.remove();
+        }
+    });
+}
+
 async function render() {
     let order = null;
 
@@ -42,6 +81,16 @@ async function render() {
     document.getElementById('confirm-email').textContent = order.email;
     document.getElementById('confirm-payment').textContent = order.paymentMethod === 'card' ? 'Card payment' : 'Pay on delivery';
     document.getElementById('confirm-total').textContent = formatPrice(order.total);
+
+    // Show tracking token if available
+    const tokenBox = document.getElementById('tracking-token-box');
+    if (order.trackingToken) {
+        document.getElementById('confirm-token').textContent = order.trackingToken;
+        tokenBox.hidden = false;
+        initCopyButton(order.trackingToken);
+    } else {
+        tokenBox.hidden = true;
+    }
 
     const itemsEl = document.getElementById('confirm-items');
     itemsEl.innerHTML = '';
