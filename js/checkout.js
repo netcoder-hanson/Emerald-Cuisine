@@ -1,6 +1,6 @@
 import { getCart, formatPrice, calculateTotals, clearCart, escapeHtml, getCartItemDetails } from './utils/cart.js';
 import { getMenuItems } from './utils/menu.js';
-import { saveOrder } from './utils/store.js';
+import { saveOrder, generateSecureOrderNumber } from './utils/store.js';
 import { sendOrderEmails } from './utils/email.js';
 import { getCurrentUser, restoreSession } from './utils/auth.js';
 
@@ -91,6 +91,7 @@ if (checkoutForm) {
         const message = checkoutForm.querySelector('.form-message') || document.createElement('p');
         message.textContent = '';
         message.classList.remove('error');
+        message.classList.remove('success');
 
         const items = await getCartItems();
         if (!items.length) {
@@ -115,7 +116,7 @@ if (checkoutForm) {
 
         const { subtotal, vat, deliveryFee, total } = calculateTotals(items, deliveryType);
         const orderData = {
-            orderNumber: `EBF${Date.now().toString().slice(-6)}`,
+            orderNumber: generateSecureOrderNumber(),
             createdAt: new Date().toISOString(),
             estimatedTime: deliveryType === 'pickup' ? 'Ready in 20-30 mins' : 'Estimated delivery in 40-55 mins',
             fullName,
@@ -136,15 +137,37 @@ if (checkoutForm) {
             submitButton.textContent = 'Placing your order...';
         }
 
-        let saved = false;
         try {
-            await saveOrder(orderData);
-        } catch {
+            // Save with cart preservation for recovery
+            const savedRow = await saveOrder(orderData, { preserveCartOnError: true });
+            // Capture the tracking token from the saved row for emails/confirmation
+            if (savedRow?.tracking_token) {
+                orderData.trackingToken = savedRow.tracking_token;
+            }
+        } catch (error) {
+            message.textContent = error.message || 'We could not save your order. Please check your connection and try again. Your cart has been preserved for retry.';
+            message.classList.add('error');
+            if (submitButton) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Place Order';
+            }
+            console.error('Failed to save order:', error);
+            return;
         }
-        await sendOrderEmails(orderData);
+
+        // Only send emails and show confirmation if save succeeded
+        const emailSent = await sendOrderEmails(orderData);
+        message.classList.remove('error');
+        message.classList.add('success');
+        message.textContent = emailSent
+            ? 'Order confirmed! Please check your email for your receipt.'
+            : 'Order confirmed! Your order has been placed successfully.';
+
         clearCart();
         localStorage.setItem('emeraldLastOrder', JSON.stringify(orderData));
-        window.location.href = `confirmation.html?order=${orderData.orderNumber}`;
+        setTimeout(() => {
+            window.location.href = `confirmation.html?order=${orderData.orderNumber}`;
+        }, 1500);
     });
 }
 

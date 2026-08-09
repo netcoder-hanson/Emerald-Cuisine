@@ -42,32 +42,20 @@ async function unsubscribe(email) {
         if (data && data.length) {
             return { ok: true, message: 'You have been unsubscribed from promotional emails.' };
         }
-        // Email not in subscribers — also flip marketing opt-in on customers.
+        // Email not in subscribers — try to flip marketing opt-in on customers.
+        // This may fail for anon users due to RLS; treat as best-effort.
         const { error: custError } = await client
             .from('customers')
             .update({ marketing_opt_in: false })
             .eq('email', normalized);
 
         if (custError) {
-            console.error('Customer opt-out error:', custError);
-            return { ok: false, message: 'We could not update your preference right now. Please try again later.' };
+            console.warn('Customer opt-out skipped (may require auth):', custError.message);
         }
-        return { ok: true, message: 'Your marketing preference has been updated. You will no longer receive promotional emails.' };
+        return { ok: true, message: 'You have been unsubscribed from promotional emails.' };
     }
 
-    // Demo mode fallback: update the local subscribers list.
-    try {
-        const subscribers = JSON.parse(localStorage.getItem('emeraldSubscribers') || '[]');
-        const index = subscribers.findIndex(sub => String(sub.email || '').trim().toLowerCase() === normalized);
-        if (index > -1) {
-            subscribers[index].status = 'unsubscribed';
-            localStorage.setItem('emeraldSubscribers', JSON.stringify(subscribers));
-            return { ok: true, message: 'You have been unsubscribed from promotional emails.' };
-        }
-        return { ok: true, message: 'You are not currently subscribed. No changes were needed.' };
-    } catch {
-        return { ok: false, message: 'We could not update your preference right now. Please try again later.' };
-    }
+    return { ok: false, message: 'We could not update your preference right now. Please try again later.' };
 }
 
 if (form) {

@@ -5,10 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Emerald's Cuisine admin dashboard - manage menu, categories, promotions and subscribers.">
     <title>Admin | Emerald's Cuisine</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
     <div class="admin-shell">
@@ -30,6 +36,9 @@
                 </button>
                 <button type="button" class="admin-tab admin-sidebar-item" data-tab="customers" role="tab">
                     <i data-lucide="users" aria-hidden="true"></i><span class="admin-tab-label">Customers</span>
+                </button>
+                <button type="button" class="admin-tab admin-sidebar-item" data-tab="emails" role="tab">
+                    <i data-lucide="inbox" aria-hidden="true"></i><span class="admin-tab-label">Order emails</span>
                 </button>
                 <button type="button" class="admin-tab admin-sidebar-item" data-tab="settings" role="tab">
                     <i data-lucide="settings" aria-hidden="true"></i><span class="admin-tab-label">Settings</span>
@@ -61,11 +70,11 @@
             </label>
             <p class="form-message error" id="login-error" aria-live="polite"></p>
             <button type="submit" class="btn btn-primary btn-full">Sign in</button>
-            <p class="admin-hint">Default login: admin / admin123. You can change these in the dashboard Settings.</p>
+            <p class="admin-hint">Use the admin username and password configured for this site.</p>
         </form>
     </main>
 
-    <main id="admin-dashboard" class="admin-view hidden">
+    <section id="admin-dashboard" class="admin-view hidden" aria-label="Admin dashboard">
         <div class="admin-container">
             <p id="admin-config-warning" class="admin-warning hidden">
                 <i data-lucide="triangle-alert" aria-hidden="true"></i>
@@ -140,6 +149,23 @@
                 <div id="customers-list" class="admin-table-wrap" aria-live="polite"></div>
             </section>
 
+            <section id="tab-emails" class="admin-tab-panel" role="tabpanel" aria-labelledby="emails-tab-title">
+                <div class="admin-panel-head">
+                    <div>
+                        <h2 id="emails-tab-title">Order emails</h2>
+                        <p>Review the customer receipt and restaurant copy for each saved order.</p>
+                    </div>
+                    <div class="admin-panel-tools">
+                        <label class="admin-search">
+                            <span class="screen-reader-text">Search order emails by order number, email or customer name</span>
+                            <input type="search" id="order-email-search" placeholder="Search orders&hellip;" aria-label="Search order emails by order number, email or customer name">
+                        </label>
+                        <a class="btn btn-secondary btn-sm" href="https://mail.google.com/" target="_blank" rel="noreferrer">Open Gmail</a>
+                    </div>
+                </div>
+                <div id="order-emails-list" class="admin-table-wrap" aria-live="polite"></div>
+            </section>
+
             <section id="tab-settings" class="admin-tab-panel" role="tabpanel" aria-labelledby="settings-tab-title">
                 <div class="admin-panel-head">
                     <div>
@@ -173,11 +199,11 @@
                         </label>
                         <div class="full-width admin-logo-field">
                             <span class="admin-field-label">Logo</span>
+                            <input type="file" id="settings-logo-input" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" aria-hidden="true" tabindex="-1">
                             <div class="admin-upload-zone" id="settings-logo-zone" tabindex="0" role="button" aria-label="Upload logo image">
-                                <input type="file" id="settings-logo-input" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" aria-hidden="true" tabindex="-1">
                                 <i data-lucide="cloud-upload" aria-hidden="true"></i>
                                 <span>Drag &amp; drop a logo, or <strong>browse</strong> (JPG/PNG/WebP, max 5MB)</span>
-                                <img id="settings-logo-preview" class="admin-upload-preview hidden" alt="Logo preview">
+                                <img id="settings-logo-preview" class="admin-upload-preview hidden" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Logo preview">
                             </div>
                         </div>
                     </div>
@@ -285,7 +311,7 @@
                 </section>
             </section>
         </div>
-    </main>
+    </section>
     </div>
 
     <div id="admin-modal" class="admin-modal" aria-hidden="true">

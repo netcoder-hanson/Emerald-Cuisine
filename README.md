@@ -6,6 +6,17 @@ Built as a **static site with no framework and no build step** — plain HTML, C
 
 ---
 
+## Recent Changes (HTML Validation Fixes)
+
+- Renamed category image files to remove spaces and illegal characters (e.g. `Barbecue Chicken Platter.jpg` → `barbecue-chicken-platter.jpg`)
+- Updated all `src` references in `index.html`, `js/order.js`, `js/utils/menu.js` and `data/menu.json` to use the new filenames
+- Changed second `<main>` in `admin.html` to `<section>` to fix duplicate main element error
+- Moved `<input type="file">` outside the `role="button"` upload zone in admin settings and item forms
+- Added `src` attribute to `<img>` elements that were missing it (lightbox preview, logo preview)
+- Updated `js/admin.js` to find the file input in its new DOM position
+
+---
+
 ## Features
 
 - **Online ordering** — browse menu categories, add items to cart, pick delivery or pickup
@@ -22,7 +33,7 @@ Built as a **static site with no framework and no build step** — plain HTML, C
 
 ## Demo mode
 
-Out of the box the site runs in **demo mode** — no backend required. Menu data loads from `data/menu.json`, and orders, reviews and subscribers are stored in `localStorage`. Add your Supabase + EmailJS keys to switch to live mode.
+Out of the box the site runs in **demo mode** — no backend required. Menu data loads from `data/menu.json`, and orders, reviews and subscribers are stored in `localStorage`. Add your Supabase + MailerSend settings to switch to live mode.
 
 ---
 
@@ -34,7 +45,7 @@ Out of the box the site runs in **demo mode** — no backend required. Menu data
 | Styling | CSS3 — Flexbox & Grid, mobile-first, single `css/style.css` |
 | Logic | Vanilla JavaScript ES modules |
 | Database | [Supabase](https://supabase.com) (PostgreSQL) via CDN `@supabase/supabase-js@2` |
-| Email | [EmailJS](https://www.emailjs.com) (browser-side email) |
+| Email | [MailerSend](https://www.mailersend.com) via Supabase Edge Functions |
 | Icons / Fonts | Font Awesome 6, Lucide, Google Fonts (Inter + Poppins) |
 | Linting | webhint (`.hintrc`, modern browsers only) |
 
@@ -74,7 +85,7 @@ Then visit `http://localhost:8000`.
 
 ---
 
-## Going Live (Supabase + EmailJS)
+## Going Live (Supabase + MailerSend)
 
 ### 1. Supabase
 
@@ -88,14 +99,19 @@ Then visit `http://localhost:8000`.
 
 5. Enable **Row Level Security** on each table and add open (demo) policies as described in the file — the tables are configured for learning/demo purposes; use stricter policies for a public production site.
 
-### 2. EmailJS
+### 2. MailerSend
 
-1. Create a free account at [emailjs.com](https://www.emailjs.com).
-2. Add an email service and **one** template. Set the template's *To Email* field to `{{to_email}}`.
-3. Copy your public key, service ID and template ID into `js/config.js` under `CONFIG.emailjs`.
-4. Set `restaurantEmail` to the inbox that should receive new order notifications.
-
-The template variables are documented in `js/config.js` (restaurant copy, customer receipt, and promo blast all use the same template, toggled with `is_restaurant`, `is_customer` and `is_promo`).
+1. Create a free account at [mailersend.com](https://www.mailersend.com).
+2. Set the sender inbox you want to use for order emails.
+3. Add these secrets to your Supabase project:
+   ```bash
+   supabase secrets set MAILERSEND_API_KEY=mlsn.xxxxxxxx
+   supabase secrets set MAILERSEND_FROM_EMAIL=orders@emeraldscuisine.com
+   supabase secrets set MAILERSEND_FROM_NAME="Emerald's Cuisine"
+   supabase secrets set RESTAURANT_EMAIL=you@example.com
+   supabase secrets set SITE_URL=https://emeraldscuisine.com
+   ```
+4. Deploy the included `send-order-email` edge function.
 
 ### 3. Storage bucket (image uploads)
 
@@ -137,12 +153,11 @@ MailerSend API key is never exposed in the browser.
    `marketing_opt_in = true`, respects unsubscribe consent, includes an unsubscribe
    link in every email, and writes `last_sent_at` / sent / failed counts back to the
    promotion row.
-5. If the function is not deployed/reachable, the admin UI falls back to EmailJS in
-   demo mode (requires the EmailJS keys above).
+5. If the function is not deployed/reachable, the admin UI will continue to use the MailerSend-powered edge function for promo emails, but order receipts will not be sent until `send-order-email` is deployed.
 
 ### 5. Admin login
 
-The admin dashboard password is `admin123` by default — change it in `js/config.js` (`CONFIG.adminPassword`).
+Set the admin dashboard password in `js/config.js` (`CONFIG.adminPassword`) before deploying.
 
 ---
 
@@ -153,7 +168,6 @@ All site configuration lives in one place: `js/config.js`.
 ```js
 CONFIG = {
   supabase: { url, anonKey },
-  emailjs: { publicKey, serviceId, templateId, restaurantEmail },
   adminPassword,
   restaurantLocation: { lat, lng }   // used by the order tracker map
 }
@@ -193,7 +207,7 @@ While keys are empty, the site stays in demo mode.
 │       ├── auth.js        Sign in / register, session persistence, "keep me signed in"
 │       ├── auth-ui.js     Global sign-in widget + modal injected into every page header
 │       ├── cart.js        Cart, totals, price formatting, escapeHtml
-│       ├── email.js       EmailJS sends (restaurant/customer/promo)
+│       ├── email.js       Order receipt sends via Supabase edge function
 │       ├── menu.js        Menu + categories (Supabase then menu.json fallback)
 │       ├── store.js       Generic Supabase CRUD + LocalStorage fallbacks
 │       └── supabase.js    Supabase client creation
@@ -221,6 +235,22 @@ More detailed guidance for AI agents and contributors lives in [`agents.md`](./a
 
 ---
 
+## CI Checks
+
+GitHub Actions runs the following checks on every push to `dev` and every PR targeting `main`:
+
+| Check | What it catches | Tool |
+| --- | --- | --- |
+| **HTML validation** | Structural/syntax errors in HTML files | html5validator |
+| **CSS validation** | Invalid properties, syntax errors, unclosed blocks in CSS | stylelint |
+| **JavaScript syntax** | Syntax errors in all `.js` files | `node --check` |
+| **Broken local references** | Missing images, CSS, JS files referenced from HTML/CSS/JS | Custom shell script |
+| **Secret detection** | Private keys, service-role keys, connection strings, hardcoded passwords | Custom shell script |
+
+The Supabase publishable (anon) key is excluded from secret detection since it is intentionally public per Supabase's security model. Service-role keys and other privileged credentials are flagged.
+
+---
+
 ## Deployment
 
 Any static host works — [Netlify](https://netlify.com), [Vercel](https://vercel.com), [Cloudflare Pages](https://pages.cloudflare.com), or GitHub Pages. Point the host at the repository root; there is no build command and no output directory.
@@ -229,7 +259,84 @@ Any static host works — [Netlify](https://netlify.com), [Vercel](https://verce
 
 ## Disclaimer
 
-The Supabase RLS policies and admin password included here are **demo-grade** and are intended for learning. Before deploying to production, replace the password, harden the database policies, and review the API keys' visibility.
+The Supabase RLS policies and browser-based admin password are **demo-grade** and are intended for learning. Before deploying to production, move admin authentication server-side, harden the database policies, and review the API keys' visibility.
+
+---
+
+## Phase 0: Secure Order Foundation
+
+### Changes Made
+
+#### Database Migration
+- **`supabase/migrations/20260808000000_phase0_foundation.sql`**: Adds foundational columns for secure customer-order relationships
+  - Adds `customer_id` column to `orders` table (nullable for backward compatibility)
+  - Adds `marketing_opt_in`, `password_hash`, `session_token`, `remember_me`, `last_seen`, `created_at` to `customers` table
+  - Adds performance indexes for order lookups
+  - All operations are additive and use `IF NOT EXISTS` to prevent breaking existing tables
+
+#### Secure Order Numbers
+- **Format**: `EC-XXXXXX` (6 cryptographically random alphanumeric characters)
+- **Excludes ambiguous characters**: I, O, 0, 1
+- **Entropy**: ~35 bits (36^6 possible combinations)
+- **Backward compatible**: Existing `EBF*` order numbers continue to work
+
+#### Order Storage
+- **No more phantom orders**: Failed database saves now throw an error instead of falling back to localStorage
+- **Cart preservation**: Cart data is preserved locally for retry when database save fails
+- **Customer linking**: Orders now include `customer_id` when the user is signed in
+
+#### Confirmation & Tracking
+- **Database-first**: Confirmation and tracking pages now query the database first
+- **No localStorage masquerade**: localStorage-only orders are clearly marked as unconfirmed
+- **Clear error messages**: Users see helpful messages when orders are not found
+
+### Customer/Order Relationship
+
+Orders are now linked to customer accounts via `customer_id`:
+- When a signed-in user places an order, their `customer_id` is stored with the order
+- Existing historical orders remain with `customer_id = NULL` until manually reconciled
+- Foreign key constraint requires manual verification of `customers.id` column type
+
+### Security Improvements
+
+1. **Order number security**: Predictable timestamp-based order numbers replaced with cryptographically secure generation
+2. **Phantom order prevention**: Failed database saves no longer create fake successful orders
+3. **Database-first lookups**: Confirmation and tracking pages prefer database over localStorage
+4. **Cart recovery**: Failed orders preserve cart contents for retry without creating phantom orders
+
+### Current Authentication Limitations
+
+The following limitations remain and should be addressed in future phases:
+
+1. **Client-side admin auth**: Admin authentication is still browser-based (sessionStorage)
+2. **No RLS policies**: Row Level Security policies are not yet configured in the repository
+3. **No Supabase Auth**: The application uses a custom session system, not Supabase Auth
+4. **No order isolation**: Any user can still view any order by number (no ownership verification)
+
+### Remaining Security Work
+
+- **P0**: Implement RLS policies to restrict order access to order owners
+- **P0**: Move admin authentication server-side
+- **P0**: Add order ownership verification for tracking/confirmation
+- **P1**: Consider migrating to Supabase Auth for better security
+- **P1**: Add rate limiting for order lookups
+- **P2**: Implement order status updates from restaurant
+
+### Database Migration Instructions
+
+After pulling these changes, run the migration in the Supabase SQL Editor:
+
+```sql
+-- Check if customer_id column exists on orders table
+SELECT column_name 
+FROM information_schema.columns 
+WHERE table_name = 'orders' AND column_name = 'customer_id';
+
+-- If not, run the migration file contents from:
+-- supabase/migrations/20260808000000_phase0_foundation.sql
+```
+
+**Important**: Verify `customers.id` is UUID type before adding the foreign key constraint. The commented-out constraint in the migration file should be uncommented after verification.
 
 ---
 

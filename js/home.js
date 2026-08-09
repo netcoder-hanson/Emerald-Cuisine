@@ -1,4 +1,4 @@
-import { getReviews, addReview, addSubscriber, getSetting, getLocalSetting } from './utils/store.js';
+import { getReviews, addReview, addSubscriber, getSetting } from './utils/store.js';
 import { escapeHtml } from './utils/cart.js';
 
 async function renderReviews() {
@@ -93,14 +93,14 @@ function initNewsletter() {
 }
 
 async function applySettings() {
-    const announcement = (await getSetting('announcement')) || getLocalSetting('announcement');
+    const announcement = await getSetting('announcement');
     const announcementEl = document.querySelector('.announcement p');
     if (announcement && announcementEl) {
         announcementEl.textContent = announcement;
     }
 
-    const heroTitle = (await getSetting('hero_title')) || getLocalSetting('hero_title');
-    const heroSubtitle = (await getSetting('hero_subtitle')) || getLocalSetting('hero_subtitle');
+    const heroTitle = await getSetting('hero_title');
+    const heroSubtitle = await getSetting('hero_subtitle');
     if (heroTitle) {
         document.querySelectorAll('.hero h1').forEach(h1 => {
             h1.textContent = '';

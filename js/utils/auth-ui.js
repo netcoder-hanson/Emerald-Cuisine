@@ -1,6 +1,10 @@
-import { getCurrentUser, restoreSession, loginOrRegister, logoutUser, findExistingByEmail } from './auth.js';
-import CONFIG from '../config.js';
-import { isAdminCredentials, getAdminCredentials, isAdminIdentifier } from './admin.js';
+// ============================================================
+// Auth UI — Sign-in / Sign-up modals + header slot rendering
+// ============================================================
+// Uses Supabase Auth via auth.js. No legacy custom auth.
+// ============================================================
+
+import { getCurrentUser, restoreSession, loginOrRegister, logoutUser, onAuthStateChange } from './auth.js';
 
 let modalRoot = null;
 let lastFocusedElement = null;
@@ -14,15 +18,14 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-// Re-renders any <i data-lucide="..."> elements added to the DOM after the
-// initial page load. Safe no-op when Lucide is not loaded.
 function refreshIcons() {
     if (window.lucide) window.lucide.createIcons();
 }
 
-// Inject a placeholder <div class="auth-slot"> inside each page's
-// .header-actions container (and the sidebar when present). Pages include
-// the auth module script.
+// ------------------------------------------------------------
+// Auth slot helpers
+// ------------------------------------------------------------
+
 function getAuthSlot() {
     const actions = document.querySelector('.header-actions');
     if (!actions) return null;
@@ -35,8 +38,6 @@ function getAuthSlot() {
     return slot;
 }
 
-// Render the auth UI into the sidebar's .site-sidebar-actions container
-// (used on the main site pages that have a persistent left sidebar).
 function getSidebarAuthSlot() {
     const actions = document.querySelector('.site-sidebar-actions');
     if (!actions) return null;
@@ -49,7 +50,10 @@ function getSidebarAuthSlot() {
     return slot;
 }
 
-// Create (once) the modal overlay + card used for sign in / create account.
+// ------------------------------------------------------------
+// Sign-in modal
+// ------------------------------------------------------------
+
 function buildModal() {
     if (modalRoot) return modalRoot;
 
@@ -68,16 +72,12 @@ function buildModal() {
             </div>
             <form class="auth-modal-form" novalidate>
                 <label class="auth-field">
-                    Username
-                    <input type="text" name="username" required autocomplete="username">
+                    Email address
+                    <input type="email" name="email" required autocomplete="email">
                 </label>
                 <label class="auth-field">
                     Password
                     <input type="password" name="password" placeholder="Your password" autocomplete="current-password" required>
-                </label>
-                <label class="checkbox-row auth-remember">
-                    <input type="checkbox" name="rememberMe" value="true" checked>
-                    <span>Keep me signed in on this device</span>
                 </label>
                 <p class="form-message auth-modal-message" aria-live="polite"></p>
                 <div class="auth-modal-actions">
@@ -85,7 +85,6 @@ function buildModal() {
                     <button type="button" class="btn btn-danger btn-full">Cancel</button>
                 </div>
                 <p class="auth-switch">Don't have an account? <button type="button" class="link-button" id="auth-open-signup">Sign up</button></p>
-                <p class="auth-admin-hint">Owner? Sign in with <strong>admin</strong> + your admin password to open the dashboard.</p>
             </form>
         </div>
     `;
@@ -127,12 +126,8 @@ export function openAuthModal(options = {}) {
     modal.classList.add('active');
     modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
-    const usernameInput = modal.querySelector('input[name="username"]');
-    const currentUser = getCurrentUser();
-    if (currentUser && usernameInput) {
-        usernameInput.value = currentUser.username || '';
-    }
-    usernameInput?.focus();
+    const emailInput = modal.querySelector('input[name="email"]');
+    emailInput?.focus();
 }
 
 function closeModal() {
@@ -157,32 +152,19 @@ async function onSubmit(event) {
     message.textContent = '';
     message.classList.remove('error');
 
-    // Admin sign-in: a matching admin username + the admin password
-    // opens the dashboard.
-    const enteredIdentifier = String(data.get('username') || '').trim().toLowerCase();
-    if (await isAdminCredentials(enteredIdentifier, String(data.get('password') || ''))) {
-        sessionStorage.setItem('emeraldAdmin', '1');
-        window.location.href = 'admin.html';
-        return;
-    }
-    const adminCreds = getAdminCredentials();
-    const adminUsername = String(adminCreds.username || CONFIG.adminUsername || '').trim().toLowerCase();
-    if (adminUsername && enteredIdentifier === adminUsername) {
-        message.textContent = 'Incorrect admin password.';
-        message.classList.add('error');
-        return;
-    }
-
     try {
         if (submitButton) {
             submitButton.disabled = true;
             submitButton.textContent = 'Signing in...';
         }
         const user = await loginOrRegister({
-            username: data.get('username'),
-            password: data.get('password'),
-            rememberMe: data.get('rememberMe') === 'true'
+            email: data.get('email'),
+            password: data.get('password')
         });
+        if (user?.isAdmin) {
+            window.location.href = 'admin.html';
+            return;
+        }
         completeAuthSuccess(user);
     } catch (error) {
         message.textContent = error.message || 'Could not sign in. Please try again.';
@@ -195,8 +177,6 @@ async function onSubmit(event) {
     }
 }
 
-// Shared post-auth handling: announce, close both modals, re-render the
-// header slots, and run any callback that opened the modal.
 function completeAuthSuccess(user) {
     document.dispatchEvent(new CustomEvent('auth:signed-in', { detail: user || getCurrentUser() }));
     const cb = pendingAuthCallback;
@@ -209,14 +189,11 @@ function completeAuthSuccess(user) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Sign-up modal: mirrors the sign-in modal's structure, focus handling and
-// close pattern. Kept separate from the sign-in form so each flow stays
-// single-purpose.
-// ---------------------------------------------------------------------------
+// ------------------------------------------------------------
+// Sign-up modal
+// ------------------------------------------------------------
 
 let signupModalRoot = null;
-let signupConflictMode = null;
 
 function buildSignupModal() {
     if (signupModalRoot) return signupModalRoot;
@@ -233,8 +210,8 @@ function buildSignupModal() {
             </div>
             <form class="auth-modal-form" novalidate>
                 <label class="auth-field">
-                    Username
-                    <input type="text" name="username" required autocomplete="username">
+                    Name
+                    <input type="text" name="username" required autocomplete="name">
                 </label>
                 <label class="auth-field">
                     Email address
@@ -253,13 +230,6 @@ function buildSignupModal() {
                     <input type="password" name="password" required autocomplete="new-password">
                 </label>
                 <p class="form-message auth-modal-message" aria-live="polite"></p>
-                <div class="auth-conflict hidden">
-                    <p>An account with this email already exists. Update it with these details, or replace it entirely.</p>
-                    <div class="auth-conflict-actions">
-                        <button type="button" class="btn btn-secondary btn-sm" id="auth-conflict-update">Update existing account</button>
-                        <button type="button" class="btn btn-danger btn-sm" id="auth-conflict-replace">Replace account</button>
-                    </div>
-                </div>
                 <div class="auth-modal-actions">
                     <button type="submit" class="btn btn-primary btn-full">Sign up</button>
                     <button type="button" class="btn btn-danger btn-full" id="auth-signup-cancel">Cancel</button>
@@ -283,16 +253,6 @@ function buildSignupModal() {
         openAuthModal(cb);
     });
     signupModalRoot.querySelector('.auth-modal-form').addEventListener('submit', onSubmitSignup);
-    signupModalRoot.querySelector('#auth-conflict-update').addEventListener('click', () => {
-        signupConflictMode = 'update';
-        signupModalRoot.querySelector('.auth-conflict').classList.add('hidden');
-        signupModalRoot.querySelector('.auth-modal-form').requestSubmit();
-    });
-    signupModalRoot.querySelector('#auth-conflict-replace').addEventListener('click', () => {
-        signupConflictMode = 'replace';
-        signupModalRoot.querySelector('.auth-conflict').classList.add('hidden');
-        signupModalRoot.querySelector('.auth-modal-form').requestSubmit();
-    });
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && signupModalRoot?.classList.contains('active')) closeSignupModal();
@@ -320,12 +280,9 @@ export function openSignupModal(options = {}) {
 function closeSignupModal() {
     if (!signupModalRoot) return;
     pendingAuthCallback = null;
-    signupConflictMode = null;
     signupModalRoot.classList.remove('active');
     signupModalRoot.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
-    const conflict = signupModalRoot.querySelector('.auth-conflict');
-    if (conflict) conflict.classList.add('hidden');
     const message = signupModalRoot.querySelector('.auth-modal-message');
     if (message) {
         message.textContent = '';
@@ -354,17 +311,9 @@ async function onSubmitSignup(event) {
     message.classList.remove('error');
 
     if (!username || !email || !password) {
-        message.textContent = 'Please fill in your username, email and password.';
+        message.textContent = 'Please fill in your name, email and password.';
         message.classList.add('error');
         return;
-    }
-
-    if (!signupConflictMode) {
-        const existing = await findExistingByEmail(email);
-        if (existing) {
-            form.querySelector('.auth-conflict')?.classList.remove('hidden');
-            return;
-        }
     }
 
     try {
@@ -373,14 +322,16 @@ async function onSubmitSignup(event) {
             submitButton.textContent = 'Creating account...';
         }
         const user = await loginOrRegister({
-            username,
             email,
-            address,
-            useAsDeliveryAddress,
             password,
-            rememberMe: true,
-            conflictMode: signupConflictMode
+            name: username,
+            address,
+            useAsDeliveryAddress
         });
+        if (user?.isAdmin) {
+            window.location.href = 'admin.html';
+            return;
+        }
         completeAuthSuccess(user);
     } catch (error) {
         message.textContent = error.message || 'Could not create your account. Please try again.';
@@ -390,12 +341,13 @@ async function onSubmitSignup(event) {
             submitButton.disabled = false;
             submitButton.textContent = 'Sign up';
         }
-        signupConflictMode = null;
     }
 }
 
-// Render the header slot: "Sign in" button when logged out,
-// account chip + dropdown when logged in.
+// ------------------------------------------------------------
+// Header slot rendering
+// ------------------------------------------------------------
+
 function renderAuthSlot() {
     const slot = getAuthSlot();
     if (!slot) return;
@@ -433,7 +385,7 @@ function renderAuthSlot() {
             <strong>${escapeHtml(user.name)}</strong>
             <span>${escapeHtml(user.email)}</span>
         </div>
-        ${isAdminIdentifier(user.email) || isAdminIdentifier(user.name) ? `
+        ${user.isAdmin ? `
             <a href="admin.html" class="auth-menu-item">
                 <i data-lucide="gauge" aria-hidden="true"></i> Admin dashboard
             </a>
@@ -460,13 +412,6 @@ function renderAuthSlot() {
     chipWrap.appendChild(menu);
     slot.appendChild(chipWrap);
     refreshIcons();
-}
-
-// Public: restore any saved session, then render the header slot.
-export async function initAuthUI() {
-    await restoreSession();
-    renderAuthSlot();
-    renderSidebarAuthSlot();
 }
 
 function renderSidebarAuthSlot() {
@@ -506,7 +451,7 @@ function renderSidebarAuthSlot() {
             <strong>${escapeHtml(user.name)}</strong>
             <span>${escapeHtml(user.email)}</span>
         </div>
-        ${isAdminIdentifier(user.email) || isAdminIdentifier(user.name) ? `
+        ${user.isAdmin ? `
             <a href="admin.html" class="auth-menu-item">
                 <i data-lucide="gauge" aria-hidden="true"></i> Admin dashboard
             </a>
@@ -535,9 +480,17 @@ function renderSidebarAuthSlot() {
     refreshIcons();
 }
 
-// Single delegated handler: closes any open auth menu when clicking outside
-// it. Registered once instead of on every slot render, so login/logout
-// cycles never accumulate document listeners.
+// ------------------------------------------------------------
+// Public init + auth state listener
+// ------------------------------------------------------------
+
+export async function initAuthUI() {
+    await restoreSession();
+    renderAuthSlot();
+    renderSidebarAuthSlot();
+}
+
+// Close menus on outside click (delegated, registered once)
 document.addEventListener('click', event => {
     document.querySelectorAll('.auth-menu.open').forEach(menu => {
         const wrap = menu.closest('.auth-chip-wrap');
@@ -548,11 +501,15 @@ document.addEventListener('click', event => {
     });
 });
 
-// Auto-initialise once the DOM is ready. Module scripts are deferred,
-// so .header-actions is already parsed when this runs.
+// Listen for Supabase Auth state changes to re-render UI
+onAuthStateChange(() => {
+    renderAuthSlot();
+    renderSidebarAuthSlot();
+});
+
+// Auto-initialise on DOM ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAuthUI);
 } else {
     initAuthUI();
 }
-

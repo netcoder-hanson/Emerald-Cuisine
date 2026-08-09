@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "block-no-empty": true,
+    "color-no-invalid-hex": true,
+    "declaration-block-no-duplicate-properties": [true, { "ignore": ["consecutive-duplicates-with-different-values"] }],
+    "font-family-no-duplicate-names": true,
+    "font-family-no-missing-generic-family-keyword": true,
+    "function-calc-no-unspaced-operator": true,
+    "keyframe-declaration-no-important": true,
+    "selector-pseudo-class-no-unknown": true,
+    "selector-pseudo-element-no-unknown": true,
+    "selector-type-no-unknown": [true, { "ignore": ["custom-elements"] }],
+    "no-empty-source": null,
+    "property-no-vendor-prefix": null,
+    "no-duplicate-selectors": null,
+    "shorthand-property-no-redundant-values": null
+  }
+}

@@ -5,33 +5,35 @@ const params = new URLSearchParams(window.location.search);
 const orderNumber = params.get('order');
 
 async function render() {
-    let localOrder = null;
-    try {
-        localOrder = JSON.parse(localStorage.getItem('emeraldLastOrder') || 'null');
-    } catch {
-        localOrder = null;
-    }
     let order = null;
+
     if (orderNumber) {
-        if (localOrder && localOrder.orderNumber === orderNumber) {
-            order = localOrder;
-        } else {
-            try {
-                order = await getOrder(orderNumber);
-            } catch (error) {
-                console.error('Failed to load order:', error);
-            }
+        // ALWAYS query database first (no localStorage fallback by default)
+        try {
+            order = await getOrder(orderNumber);
+        } catch (error) {
+            console.error('Failed to load order from database:', error);
         }
     }
 
     if (!order) {
         const card = document.querySelector('.confirmation-card');
         if (card) {
-            card.innerHTML = '<p class="menu-empty">We could not find that order. Please check your order number and try again.</p>';
+            card.innerHTML = `
+                <p class="menu-empty">
+                    We could not find order <strong>${escapeHtml(orderNumber || 'unknown')}</strong> in our system.
+                </p>
+                <p class="menu-empty" style="margin-top: 16px;">
+                    If you just placed an order, please check your email for confirmation.
+                    If you believe this is an error, please contact us.
+                </p>
+                <a href="order.html" class="btn btn-primary" style="margin-top: 24px;">Place a New Order</a>
+            `;
         }
         return;
     }
 
+    // Show confirmation details
     document.getElementById('confirm-name').textContent = order.fullName;
     document.getElementById('confirm-number').textContent = order.orderNumber;
     document.getElementById('confirm-time').textContent = order.estimatedTime;
@@ -54,7 +56,19 @@ async function render() {
         itemsEl.appendChild(row);
     });
 
-    document.getElementById('track-btn').href = `track.html?order=${order.orderNumber}`;
+    document.getElementById('track-btn').href = `track.html?order=${order.orderNumber}${order.trackingToken ? `&token=${order.trackingToken}` : ''}`;
+
+    // Show notice if this is a localStorage-only order (should not happen with new code)
+    if (order.isDatabaseOrder === false) {
+        const notice = document.createElement('div');
+        notice.className = 'menu-empty';
+        notice.style.cssText = 'margin-top: 24px; padding: 16px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;';
+        notice.innerHTML = `
+            <strong>Note:</strong> This order was not found in our database. 
+            It may not have been fully processed. Please contact us if you have concerns.
+        `;
+        document.querySelector('.confirmation-card')?.appendChild(notice);
+    }
 }
 
 render();

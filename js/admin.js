@@ -1,5 +1,5 @@
 import CONFIG from './config.js';
-import { isSupabaseConfigured } from './utils/supabase.js';
+import { isSupabaseConfigured, getSupabaseClient } from './utils/supabase.js';
 import {
     fetchRows, insertRow, updateRow, deleteRow, countRows, fetchRowsIn,
     uploadImage, invokeEdgeFunction, toCSV, downloadBlob,
@@ -7,15 +7,20 @@ import {
 } from './utils/store.js';
 import { CATEGORY_SLUGS } from './utils/menu.js';
 import { escapeHtml, formatPrice } from './utils/cart.js';
-import { getAdminCredentials, saveAdminCredentials, isAdminCredentials } from './utils/admin.js';
+import { signIn, signOut, getUser } from './utils/supabase-auth.js';
+import { getCurrentUser } from './utils/auth.js';
 
 const loginView = document.getElementById('admin-login');
 const dashboard = document.getElementById('admin-dashboard');
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
 
-function isLoggedIn() {
-    return sessionStorage.getItem('emeraldAdmin') === '1';
+async function isLoggedIn() {
+    const user = await getUser();
+    if (!user) return false;
+    // Check if the user is an admin via customers table
+    const profile = await getCurrentUser();
+    return profile?.isAdmin === true;
 }
 
 function showDashboard() {
@@ -25,24 +30,8 @@ function showDashboard() {
     initAdminCredentialsForm();
 }
 
-if (isLoggedIn()) {
-    showDashboard();
-} else {
-    loginForm.addEventListener('submit', async event => {
-        event.preventDefault();
-        const username = loginForm.querySelector('input[name="username"]').value;
-        const password = loginForm.querySelector('input[name="password"]').value;
-        if (await isAdminCredentials(username, password)) {
-            sessionStorage.setItem('emeraldAdmin', '1');
-            showDashboard();
-        } else {
-            loginError.textContent = 'Incorrect username or password. Please try again.';
-        }
-    });
-}
-
-document.getElementById('logout-btn').addEventListener('click', () => {
-    sessionStorage.removeItem('emeraldAdmin');
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    await signOut();
     window.location.reload();
 });
 
@@ -157,7 +146,8 @@ function clearFieldErrors(form) {
 }
 
 function initUploadZone(zone, { maxSizeMB = 5, onImage } = {}) {
-    const input = zone.querySelector('[data-upload-input]');
+    const field = zone.closest('.admin-logo-field') || zone;
+    const input = field.querySelector('[data-upload-input]');
     const preview = zone.querySelector('[data-upload-preview]');
     const state = { file: null, dataUrl: null };
 
@@ -243,23 +233,6 @@ function categoryMatches(item, cat) {
 // is not loaded (e.g. offline).
 function refreshIcons() {
     if (window.lucide) window.lucide.createIcons();
-}
-
-function readLocal(key, fallback) {
-    try {
-        const value = JSON.parse(localStorage.getItem(key) || 'null');
-        return value ?? fallback;
-    } catch {
-        return fallback;
-    }
-}
-
-function writeLocal(key, value) {
-    try {
-        localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-        // Storage unavailable — ignore.
-    }
 }
 
 async function getCurrencySymbol() {
@@ -392,11 +365,11 @@ async function buildItemForm(row = {}) {
             </div>
             <div class="full-width admin-logo-field">
                 <span class="admin-field-label">Image (JPG, PNG or WebP &mdash; max 5MB)</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" data-upload-input aria-hidden="true" tabindex="-1">
                 <div class="admin-upload-zone" data-upload-zone tabindex="0" role="button" aria-label="Upload item image">
-                    <input type="file" accept="image/jpeg,image/png,image/webp" class="admin-upload-input" data-upload-input aria-hidden="true" tabindex="-1">
                     <i data-lucide="cloud-upload" aria-hidden="true"></i>
                     <span>Drag &amp; drop an image here, or <strong>browse</strong></span>
-                    <img class="admin-upload-preview hidden" data-upload-preview alt="Item image preview">
+                    <img class="admin-upload-preview hidden" data-upload-preview src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Item image preview">
                 </div>
             </div>
             <div class="admin-form-actions">
@@ -534,15 +507,11 @@ async function getAdminCategories() {
     } catch (error) {
         showToast(`Could not load categories: ${error.message}`, 'error');
     }
-    let local = readLocal('emeraldAdminCategories', []);
-    if (!local.length) {
-        local = CATEGORY_SLUGS.map((slug, index) => ({
-            id: null,
-            name: slug.charAt(0).toUpperCase() + slug.slice(1),
-            display_order: index
-        }));
-    }
-    return local;
+    return CATEGORY_SLUGS.map((slug, index) => ({
+        id: null,
+        name: slug.charAt(0).toUpperCase() + slug.slice(1),
+        display_order: index
+    }));
 }
 
 async function renderCategories() {
@@ -597,8 +566,6 @@ async function renderCategories() {
                 if (cat.id) {
                     await deleteRow('categories', cat.id);
                 }
-                const local = readLocal('emeraldAdminCategories', []);
-                writeLocal('emeraldAdminCategories', local.filter(c => String(c.id || c.name) !== key));
                 showToast('Category deleted.');
                 renderCategories();
             } catch (error) {
@@ -649,23 +616,10 @@ function buildCategoryForm(row = {}) {
 
         try {
             if (editingCategoryId) {
-                if (isSupabaseConfigured()) {
-                    await updateRow('categories', editingCategoryId, { name, display_order, sort_order: displayOrder });
-                } else {
-                    const local = readLocal('emeraldAdminCategories', []);
-                    const index = local.findIndex(c => String(c.id || c.name) === String(editingCategoryId));
-                    if (index > -1) local[index] = { ...local[index], name, display_order: displayOrder };
-                    writeLocal('emeraldAdminCategories', local);
-                }
+                await updateRow('categories', editingCategoryId, { name, display_order, sort_order: displayOrder });
                 showToast('Category updated.');
             } else {
-                if (isSupabaseConfigured()) {
-                    await insertRow('categories', { name, display_order, sort_order: displayOrder });
-                } else {
-                    const local = readLocal('emeraldAdminCategories', []);
-                    local.push({ id: null, name, display_order: displayOrder });
-                    writeLocal('emeraldAdminCategories', local);
-                }
+                await insertRow('categories', { name, display_order, sort_order: displayOrder });
                 showToast('Category added.');
             }
             modalCloseGuard = null;
@@ -691,7 +645,7 @@ async function getAdminPromotions() {
     } catch (error) {
         showToast(`Could not load promotions: ${error.message}`, 'error');
     }
-    return readLocal('emeraldAdminPromotions', []);
+    return [];
 }
 
 function formatPromoDates(row) {
@@ -762,8 +716,6 @@ async function renderPromotions() {
             if (!confirm('Delete this promotion?')) return;
             try {
                 await deleteRow('promotions', btn.dataset.deletePromotion);
-                const local = readLocal('emeraldAdminPromotions', []);
-                writeLocal('emeraldAdminPromotions', local.filter(p => String(p.id) !== btn.dataset.deletePromotion));
                 showToast('Promotion deleted.');
                 renderPromotions();
             } catch (error) {
@@ -781,13 +733,8 @@ async function goLive(promotionId) {
     try {
         const rows = await fetchRows('promotions', { eq: { column: 'id', value: promotionId } });
         row = rows && rows[0];
-        if (!row) {
-            const local = readLocal('emeraldAdminPromotions', []);
-            row = local.find(p => String(p.id) === String(promotionId));
-        }
     } catch {
-        const local = readLocal('emeraldAdminPromotions', []);
-        row = local.find(p => String(p.id) === String(promotionId));
+        // Could not fetch promotion
     }
     if (!row) return;
 
@@ -939,23 +886,10 @@ function buildPromotionForm(row = {}) {
 
         try {
             if (editingPromotionId) {
-                if (isSupabaseConfigured()) {
-                    await updateRow('promotions', editingPromotionId, payload);
-                } else {
-                    const local = readLocal('emeraldAdminPromotions', []);
-                    const index = local.findIndex(p => String(p.id) === String(editingPromotionId));
-                    if (index > -1) local[index] = { ...local[index], ...payload };
-                    writeLocal('emeraldAdminPromotions', local);
-                }
+                await updateRow('promotions', editingPromotionId, payload);
                 showToast('Promotion updated.');
             } else {
-                if (isSupabaseConfigured()) {
-                    await insertRow('promotions', { ...payload, active: true, is_live: false });
-                } else {
-                    const local = readLocal('emeraldAdminPromotions', []);
-                    local.unshift({ ...payload, id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`, is_live: false });
-                    writeLocal('emeraldAdminPromotions', local);
-                }
+                await insertRow('promotions', { ...payload, active: true, is_live: false });
                 showToast('Promotion added.');
             }
             modalCloseGuard = null;
@@ -983,7 +917,7 @@ async function renderSubscribers(filter = '') {
         showToast(`Could not load subscribers: ${error.message}`, 'error');
         rows = null;
     }
-    if (!rows || !rows.length) rows = readLocal('emeraldSubscribers', []);
+    if (!rows) rows = [];
 
     const query = (filter || '').toLowerCase();
     const filtered = rows.filter(row => !query || String(row.email || '').toLowerCase().includes(query));
@@ -1014,8 +948,6 @@ async function renderSubscribers(filter = '') {
             if (!confirm('Remove this subscriber? They will no longer receive promo emails.')) return;
             try {
                 await removeSubscriber(btn.dataset.deleteSubscriber);
-                const local = readLocal('emeraldSubscribers', []);
-                writeLocal('emeraldSubscribers', local.filter(s => String(s.id || s.email) !== btn.dataset.deleteSubscriber));
                 showToast('Subscriber removed.');
                 renderSubscribers(subscriberSearch?.value || '');
             } catch (error) {
@@ -1029,26 +961,25 @@ if (subscriberSearch) {
     subscriberSearch.addEventListener('input', () => renderSubscribers(subscriberSearch.value));
 }
 
-document.getElementById('export-subscribers')?.addEventListener('click', () => {
-    const rows = readLocal('emeraldSubscribers', []);
-    Promise.resolve(getSubscribers()).then(supabaseRows => {
-        const all = (supabaseRows && supabaseRows.length) ? supabaseRows : rows;
-        const csvRows = all.map(row => ({
+document.getElementById('export-subscribers')?.addEventListener('click', async () => {
+    try {
+        const rows = await getSubscribers() || [];
+        const csvRows = rows.map(row => ({
             email: row.email,
             status: row.status || 'active',
             subscribed_at: row.subscribed_at || row.created_at || ''
         }));
         downloadBlob('emerald-cuisine-subscribers.csv', toCSV(csvRows), 'text/csv');
         showToast(`Exported ${csvRows.length} subscriber(s).`);
-    }).catch(() => {
-        const csvRows = rows.map(row => ({ email: row.email, status: row.status || 'active', subscribed_at: row.subscribed_at || row.created_at || '' }));
-        downloadBlob('emerald-cuisine-subscribers.csv', toCSV(csvRows), 'text/csv');
-        showToast(`Exported ${csvRows.length} subscriber(s).`);
-    });
+    } catch (error) {
+        showToast(`Could not export subscribers: ${error.message}`, 'error');
+    }
 });
 
 const customersList = document.getElementById('customers-list');
 const customerSearch = document.getElementById('customer-search');
+const orderEmailsList = document.getElementById('order-emails-list');
+const orderEmailSearch = document.getElementById('order-email-search');
 
 async function getAdminCustomers() {
     try {
@@ -1057,24 +988,28 @@ async function getAdminCustomers() {
     } catch (error) {
         showToast(`Could not load customers: ${error.message}`, 'error');
     }
-    return readLocal('emeraldUsers', []);
+    return [];
 }
 
 async function getOrdersByEmail(email) {
     const normalized = String(email || '').trim().toLowerCase();
-    if (isSupabaseConfigured()) {
-        try {
-            const rows = await fetchRowsIn('orders', 'customer_email', [normalized, String(email || '')]);
-            if (rows && rows.length) return rows;
-        } catch {
-            // fall through to local orders
-        }
+    try {
+        const rows = await fetchRowsIn('orders', 'customer_email', [normalized, String(email || '')]);
+        if (rows && rows.length) return rows;
+    } catch {
+        // Could not fetch orders
     }
-    const local = readLocal('emeraldOrders', {});
-    return Object.values(local).filter(order =>
-        String(order.email || '').trim().toLowerCase() === normalized ||
-        String(order.customer_email || '').trim().toLowerCase() === normalized
-    );
+    return [];
+}
+
+async function getAdminOrders() {
+    try {
+        const rows = await fetchRows('orders', { order: 'created_at', ascending: false, limit: 300 });
+        if (rows && rows.length) return rows;
+    } catch (error) {
+        showToast(`Could not load orders: ${error.message}`, 'error');
+    }
+    return [];
 }
 
 async function renderCustomers(filter = '') {
@@ -1088,9 +1023,7 @@ async function renderCustomers(filter = '') {
 
     let ordersByEmail = {};
     try {
-        const orderRows = isSupabaseConfigured()
-            ? await fetchRows('orders', { order: 'created_at', ascending: false, limit: 2000 })
-            : Object.values(readLocal('emeraldOrders', {}));
+        const orderRows = await fetchRows('orders', { order: 'created_at', ascending: false, limit: 2000 });
         (orderRows || []).forEach(order => {
             const email = String(order.customer_email || order.email || '').trim().toLowerCase();
             if (!email) return;
@@ -1146,8 +1079,6 @@ async function renderCustomers(filter = '') {
             const found = customers.find(c => String(c.id || c.email) === btn.dataset.deleteCustomer);
             try {
                 if (found && found.id) await deleteRow('customers', found.id);
-                const local = readLocal('emeraldUsers', []);
-                writeLocal('emeraldUsers', local.filter(c => String(c.id || c.email) !== btn.dataset.deleteCustomer));
                 showToast('Customer deleted.');
                 renderCustomers(customerSearch?.value || '');
             } catch (error) {
@@ -1204,6 +1135,67 @@ async function openCustomerHistory(customer) {
 if (customerSearch) {
     customerSearch.addEventListener('input', () => renderCustomers(customerSearch.value));
 }
+
+function formatOrderEmailCard(order) {
+    const created = order.created_at || order.createdAt || null;
+    const createdText = created ? new Date(created).toLocaleString() : 'Unknown time';
+    const email = String(order.customer_email || order.email || '').trim();
+    const items = Array.isArray(order.items) ? order.items : [];
+    const itemSummary = items.length
+        ? items.map(item => `${escapeHtml(item.name)} x${escapeHtml(item.quantity)}`).join(', ')
+        : 'No items recorded';
+
+    return `
+        <article class="admin-email-card">
+            <div class="admin-row">
+                <div class="admin-row-main">
+                    <strong>${escapeHtml(order.order_number || order.orderNumber || 'Order')}</strong>
+                    <span>${escapeHtml(order.customer_name || order.fullName || 'Customer')}</span>
+                    <span>${escapeHtml(email || 'No customer email')} &middot; ${escapeHtml(createdText)}</span>
+                </div>
+                <span class="admin-badge ok">Saved order</span>
+            </div>
+            <div class="admin-email-body">
+                <p><strong>To customer:</strong> ${escapeHtml(email || '—')}</p>
+                <p><strong>Restaurant copy:</strong> Sent to Gmail inbox configured in Supabase secrets.</p>
+                <p><strong>Items:</strong> ${itemSummary}</p>
+                <p><strong>Total:</strong> ${formatMoney(Number(order.total || 0), '₦')}</p>
+            </div>
+        </article>
+    `;
+}
+
+async function renderOrderEmails(filter = '') {
+    if (!orderEmailsList) return;
+    let rows;
+    try {
+        rows = await getAdminOrders();
+    } catch {
+        rows = [];
+    }
+
+    const query = String(filter || '').trim().toLowerCase();
+    const filtered = rows.filter(order => {
+        if (!query) return true;
+        const haystack = [
+            order.order_number,
+            order.orderNumber,
+            order.customer_name,
+            order.fullName,
+            order.customer_email,
+            order.email
+        ].map(value => String(value || '').toLowerCase()).join(' ');
+        return haystack.includes(query);
+    });
+
+    orderEmailsList.innerHTML = filtered.length
+        ? filtered.map(formatOrderEmailCard).join('')
+        : '<p class="admin-empty">No order emails found.</p>';
+}
+
+if (orderEmailSearch) {
+    orderEmailSearch.addEventListener('input', () => renderOrderEmails(orderEmailSearch.value));
+}
 // ---------------- Settings ----------------
 
 const settingsForm = document.getElementById('settings-form');
@@ -1224,31 +1216,24 @@ async function loadSetting(key, fallback = '') {
         const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
         if (rows && rows.length) return rows[0].value;
     } catch {
-        // fall through to local
+        // Could not fetch setting
     }
-    return readLocal('emeraldSettings', {})[key] ?? fallback;
+    return fallback;
 }
 
 async function saveSetting(key, value) {
-    try {
-        const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
-        if (rows && rows.length) {
-            await updateRow('settings', rows[0].id, { value });
-        } else if (rows && !rows.length) {
-            await insertRow('settings', { id: key, value });
-        }
-    } catch {
-        // Supabase unavailable — demo mode uses localStorage below.
+    const rows = await fetchRows('settings', { eq: { column: 'id', value: key } });
+    if (rows && rows.length) {
+        await updateRow('settings', rows[0].id, { value });
+    } else if (rows && !rows.length) {
+        await insertRow('settings', { id: key, value });
     }
-    const settings = readLocal('emeraldSettings', {});
-    settings[key] = value;
-    writeLocal('emeraldSettings', settings);
 }
 
-function buildHoursGrid() {
+function buildHoursGrid(hoursData) {
     const grid = document.getElementById('hours-grid');
     if (!grid) return;
-    const hours = { ...DEFAULT_HOURS, ...(readLocal('emeraldHours', {}) || {}) };
+    const hours = { ...DEFAULT_HOURS, ...(hoursData || {}) };
     grid.innerHTML = DAYS.map(day => {
         const value = hours[day] || DEFAULT_HOURS[day];
         return `
@@ -1302,15 +1287,16 @@ async function renderSettings() {
         input.checked = value === 'true' || value === true || value === '1' || value === 'on';
     }
 
+    let hoursData = {};
     const hoursRaw = await loadSetting('hours', '');
     if (hoursRaw) {
         try {
-            writeLocal('emeraldHours', JSON.parse(hoursRaw));
+            hoursData = JSON.parse(hoursRaw);
         } catch {
             // ignore malformed JSON
         }
     }
-    buildHoursGrid();
+    buildHoursGrid(hoursData);
 
     // Logo preview
     const logoUrl = await loadSetting('logo_url', '');
@@ -1328,7 +1314,8 @@ async function renderSettings() {
 function initSettingsLogoUpload() {
     const zone = document.getElementById('settings-logo-zone');
     if (!zone) return;
-    const input = zone.querySelector('#settings-logo-input');
+    const field = zone.closest('.admin-logo-field') || document;
+    const input = field.querySelector('#settings-logo-input');
     const preview = zone.querySelector('#settings-logo-preview');
     if (!input || !preview) return;
     let logoDataUrl = '';
@@ -1421,7 +1408,6 @@ settingsForm?.addEventListener('submit', async event => {
             };
         });
         await saveSetting('hours', JSON.stringify(hours));
-        writeLocal('emeraldHours', hours);
 
         // Upload logo (if a new one was chosen).
         if (window.emeraldLogoUpload) {
@@ -1443,13 +1429,15 @@ document.getElementById('export-all-data')?.addEventListener('click', async () =
     const message = document.getElementById('data-export-message');
     if (message) message.textContent = 'Preparing export&hellip;';
     try {
-        const [menu, categories, subscribers, customers, settings] = await Promise.all([
+        const [menu, categories, subscribers, customers, settingsRows] = await Promise.all([
             getAdminItems(),
             getAdminCategories(),
-            (async () => (await getSubscribers()) || readLocal('emeraldSubscribers', []))(),
+            (async () => (await getSubscribers()) || [])(),
             getAdminCustomers(),
-            readLocal('emeraldSettings', {})
+            fetchRows('settings')
         ]);
+        const settings = {};
+        (settingsRows || []).forEach(row => { settings[row.id] = row.value; });
         const payload = {
             exported_at: new Date().toISOString(),
             menu,
@@ -1478,7 +1466,7 @@ document.getElementById('export-subscribers-data')?.addEventListener('click', as
     }
     try {
         let rows = await getSubscribers();
-        if (!rows || !rows.length) rows = readLocal('emeraldSubscribers', []);
+        // removed localStorage fallback
         const csvRows = (rows || []).map(row => ({
             email: row.email,
             status: row.status || 'active',
@@ -1500,11 +1488,11 @@ const adminCredentialsForm = document.getElementById('admin-credentials-form');
 
 function initAdminCredentialsForm() {
     if (!adminCredentialsForm) return;
-    const creds = getAdminCredentials() || {};
-    const usernameInput = adminCredentialsForm.querySelector('[name="adminUsername"]');
-    const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
-    if (usernameInput) usernameInput.value = creds.username || '';
-    if (emailInput) emailInput.value = creds.email || '';
+    // Pre-fill current admin email from Supabase Auth
+    getUser().then(user => {
+        const emailInput = adminCredentialsForm.querySelector('[name="adminEmail"]');
+        if (emailInput && user?.email) emailInput.value = user.email;
+    });
 
     adminCredentialsForm.addEventListener('submit', async event => {
         event.preventDefault();
@@ -1512,14 +1500,12 @@ function initAdminCredentialsForm() {
         const data = new FormData(adminCredentialsForm);
         const currentPassword = String(data.get('currentPassword') || '');
         const newPassword = String(data.get('newPassword') || '').trim();
-        const newUsername = String(data.get('adminUsername') || '').trim();
-        const newEmail = String(data.get('adminEmail') || '').trim();
 
         message.textContent = '';
         message.classList.remove('error');
 
-        if (!(await isAdminCredentials(creds.username, currentPassword))) {
-            message.textContent = 'Current password is incorrect.';
+        if (!currentPassword || !newPassword) {
+            message.textContent = 'Please enter your current password and a new password.';
             message.classList.add('error');
             return;
         }
@@ -1528,17 +1514,43 @@ function initAdminCredentialsForm() {
             message.classList.add('error');
             return;
         }
-        if (!(await saveAdminCredentials({ username: newUsername, password: newPassword, email: newEmail }))) {
-            message.textContent = 'Please enter a valid username and password.';
+
+        // Re-authenticate then update password via Supabase Auth
+        try {
+            const user = await getUser();
+            if (!user?.email) {
+                message.textContent = 'Could not verify your account. Please sign in again.';
+                message.classList.add('error');
+                return;
+            }
+            const client = getSupabaseClient();
+            if (!client) {
+                message.textContent = 'Supabase is not configured.';
+                message.classList.add('error');
+                return;
+            }
+            // Re-sign-in to verify current password
+            const { error: authError } = await signIn(user.email, currentPassword);
+            if (authError) {
+                message.textContent = 'Current password is incorrect.';
+                message.classList.add('error');
+                return;
+            }
+            // Update password
+            const { error: updateError } = await client.auth.updateUser({ password: newPassword });
+            if (updateError) {
+                message.textContent = updateError.message || 'Could not update password.';
+                message.classList.add('error');
+                return;
+            }
+            adminCredentialsForm.reset();
+            message.textContent = 'Password updated successfully.';
+            message.classList.remove('error');
+            showToast('Password updated.');
+        } catch (err) {
+            message.textContent = 'Could not update password. Please try again.';
             message.classList.add('error');
-            return;
         }
-        adminCredentialsForm.reset();
-        usernameInput.value = newUsername;
-        emailInput.value = newEmail;
-        message.textContent = 'Admin credentials updated. Use them on your next sign-in.';
-        message.classList.remove('error');
-        showToast('Admin credentials updated.');
     });
 }
 
@@ -1552,6 +1564,7 @@ function initDashboard() {
     renderPromotions();
     renderSubscribers();
     renderCustomers();
+    renderOrderEmails(orderEmailSearch?.value || '');
     renderSettings();
     initSettingsLogoUpload();
 }
@@ -1560,19 +1573,32 @@ function initDashboard() {
 // above is initialised by now, so both the logged-in and login paths work.
 refreshIcons();
 
-if (isLoggedIn()) {
-    showDashboard();
-} else {
-    loginForm.addEventListener('submit', async event => {
-        event.preventDefault();
-        const username = loginForm.querySelector('input[name="username"]').value;
-        const password = loginForm.querySelector('input[name="password"]').value;
-        if (await isAdminCredentials(username, password)) {
-            sessionStorage.setItem('emeraldAdmin', '1');
-            showDashboard();
-        } else {
-            loginError.textContent = 'Incorrect username or password. Please try again.';
-        }
-    });
-}
+(async () => {
+    if (await isLoggedIn()) {
+        showDashboard();
+    } else {
+        loginForm.addEventListener('submit', async event => {
+            event.preventDefault();
+            const email = loginForm.querySelector('input[name="username"]').value;
+            const password = loginForm.querySelector('input[name="password"]').value;
+            try {
+                const { user, error } = await signIn(email, password);
+                if (error || !user) {
+                    loginError.textContent = 'Incorrect email or password. Please try again.';
+                    return;
+                }
+                // Verify admin status
+                const profile = await getCurrentUser();
+                if (!profile?.isAdmin) {
+                    loginError.textContent = 'You do not have admin access. Please contact the owner.';
+                    await signOut();
+                    return;
+                }
+                showDashboard();
+            } catch (err) {
+                loginError.textContent = 'Incorrect email or password. Please try again.';
+            }
+        });
+    }
+})();
 

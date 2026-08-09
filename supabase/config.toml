@@ -9,3 +9,9 @@ project_id = "nbzqofzuotetkvtuloba"
 # See https://supabase.com/docs/guides/functions/auth
 [functions.send-promotion-email]
 verify_jwt = false
+
+[functions.send-order-email]
+verify_jwt = false
+
+[functions.track-order]
+verify_jwt = false

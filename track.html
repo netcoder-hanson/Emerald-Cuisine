@@ -5,11 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Track your Emerald's Cuisine delivery live with a map, rider location and delivery status.">
     <title>Track Order | Emerald's Cuisine</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="css/style.css">
+    <script>
+        window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -63,7 +69,9 @@
                 <div class="track-card" id="track-card">
                     <form id="track-lookup-form" class="track-lookup-form" hidden>
                         <label class="screen-reader-text" for="track-lookup-input">Order number</label>
-                        <input id="track-lookup-input" type="text" placeholder="Enter order number e.g. EBF1234" required>
+                        <input id="track-lookup-input" type="text" placeholder="Enter order number e.g. EC-XXXXXX" required>
+                        <label class="screen-reader-text" for="track-lookup-token">Tracking token</label>
+                        <input id="track-lookup-token" type="text" placeholder="Tracking token from your email" required>
                         <button type="submit" class="btn btn-primary">Track Order</button>
                     </form>
                 </div>

@@ -70,9 +70,9 @@ export const CATEGORY_SLUGS = [
 
 // Categories drive the homepage grid and the order page filter.
 const DEFAULT_CATEGORIES = [
-    { name: 'Grills', description: 'Signature steaks, suya and barbecue favourites.', image: 'images/categories/Signature steaks, suya and barbecue favourites..jpg' },
-    { name: 'Rice', description: 'Rich jollof, fragrant fried rice and gourmet sides.', image: 'images/categories/Rich jollof, fragrant fried rice and gourmet sides..jpg' },
-    { name: 'Nigerian Cuisine', description: 'Classic local favourites like egusi, coconut rice and hearty soups.', image: 'images/categories/akara & pap.jpg' },
+    { name: 'Grills', description: 'Signature steaks, suya and barbecue favourites.', image: 'images/categories/signature-steaks-suya-barbecue-favourites.jpg' },
+    { name: 'Rice', description: 'Rich jollof, fragrant fried rice and gourmet sides.', image: 'images/categories/rich-jollof-fragrant-fried-rice-gourmet-sides.jpg' },
+    { name: 'Nigerian Cuisine', description: 'Classic local favourites like egusi, coconut rice and hearty soups.', image: 'images/categories/akara-and-pap.jpg' },
     { name: 'Soups', description: 'Warm, comforting bowls steeped in local spices.', image: 'images/categories/soups.jpg' },
     { name: 'Seafood', description: 'Fresh prawns, grilled fish and coastal specials.', image: 'images/categories/seafood.png' },
     { name: 'Drinks', description: 'Craft cocktails, cooling juices and premium wines.', image: 'images/categories/drinks.png' },
