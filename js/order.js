@@ -1,6 +1,6 @@
 import { getCart, saveCart, formatPrice, calculateTotals, getCartItemCount, escapeHtml, getCartItemDetails, saveCartItemDetails, removeCartItemDetails } from './utils/cart.js';
 import { getMenuItems } from './utils/menu.js';
-import { getCurrentUser } from './utils/auth.js';
+import { waitForAuthReady } from './utils/auth.js';
 import { openAuthModal } from './utils/auth-ui.js';
 
 let menuItems = [];
@@ -282,15 +282,22 @@ document.querySelectorAll('.cart-trigger, #floatingCart, a[href="#cart"]').forEa
 
 const checkoutButton = document.querySelector('.cart-summary a[href="checkout.html"]');
 if (checkoutButton) {
-    checkoutButton.addEventListener('click', event => {
-        if (!getCurrentUser()) {
-            event.preventDefault();
-            openAuthModal({
-                onSuccess: () => {
-                    window.location.href = 'checkout.html';
-                }
-            });
+    checkoutButton.addEventListener('click', async event => {
+        // The click handler must not guess auth state before Supabase has
+        // restored the session. Wait for the same auth-ready promise used by
+        // checkout.js so navigation is deterministic.
+        event.preventDefault();
+        const user = await waitForAuthReady();
+        if (user) {
+            window.location.href = 'checkout.html';
+            return;
         }
+
+        openAuthModal({
+            onSuccess: () => {
+                window.location.href = 'checkout.html';
+            }
+        });
     });
 }
 
@@ -313,7 +320,6 @@ document.addEventListener('keydown', event => {
         closeCartModal();
     }
 });
-
 
 if (orderGrid) {
     orderGrid.addEventListener('click', event => {
