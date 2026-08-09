@@ -2,20 +2,20 @@ import { getCart, formatPrice, calculateTotals, clearCart, escapeHtml, getCartIt
 import { getMenuItems } from './utils/menu.js';
 import { saveOrder, generateSecureOrderNumber } from './utils/store.js';
 import { sendOrderEmails } from './utils/email.js';
-import { getCurrentUser, restoreSession } from './utils/auth.js';
+import { waitForAuthReady } from './utils/auth.js';
 
 const checkoutForm = document.querySelector('.checkout-form');
 const summaryItemsContainer = document.querySelector('.summary-items');
 const summarySubtotal = document.getElementById('summary-subtotal');
 
 async function ensureSignedIn() {
-    const currentUser = getCurrentUser();
-    if (currentUser) return currentUser;
+    // Wait for Supabase to restore the persisted session before deciding
+    // that the visitor is unauthenticated. This prevents a false redirect
+    // back to order.html when moving between pages.
+    const user = await waitForAuthReady();
+    if (user) return user;
 
-    const restoredUser = await restoreSession();
-    if (restoredUser) return restoredUser;
-
-    window.location.href = 'order.html';
+    window.location.replace('order.html');
     return null;
 }
 
@@ -138,9 +138,7 @@ if (checkoutForm) {
         }
 
         try {
-            // Save with cart preservation for recovery
             const savedRow = await saveOrder(orderData, { preserveCartOnError: true });
-            // Capture the tracking token from the saved row for emails/confirmation
             if (savedRow?.tracking_token) {
                 orderData.trackingToken = savedRow.tracking_token;
             }
@@ -155,7 +153,6 @@ if (checkoutForm) {
             return;
         }
 
-        // Only send emails and show confirmation if save succeeded
         const emailSent = await sendOrderEmails(orderData);
         message.classList.remove('error');
         message.classList.add('success');
@@ -173,8 +170,9 @@ if (checkoutForm) {
 
 async function initCheckout() {
     const user = await ensureSignedIn();
-    if (user) prefillCheckout(user);
-    renderSummary();
+    if (!user) return;
+    prefillCheckout(user);
+    await renderSummary();
 }
 
 initCheckout();
