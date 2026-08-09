@@ -32,6 +32,19 @@ function buildOrderHtml(order, recipientType, unsubscribeUrl) {
       </tr>
     `).join('');
 
+    const trackingToken = String(order.trackingToken || '').trim();
+    const trackingBlock = recipientType === 'customer' && trackingToken ? `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 24px;background:#F3F8F5;border:1px solid #CFE6DC;border-radius:12px;">
+        <tr>
+          <td style="padding:18px 20px;">
+            <p style="margin:0 0 6px;font-size:12px;color:#6B6B6B;text-transform:uppercase;letter-spacing:1px;">Order tracking token</p>
+            <p style="margin:0;font-size:22px;font-weight:bold;letter-spacing:2px;color:#0A5C43;">${escapeHtml(trackingToken)}</p>
+            <p style="margin:8px 0 0;font-size:12px;color:#6B6B6B;">Keep this token safe. You will need it together with your order number to track your order.</p>
+          </td>
+        </tr>
+      </table>
+    ` : '';
+
     return `<!DOCTYPE html>
 <html lang="en">
 <body style="margin:0;padding:0;background:#F8F6F1;font-family:Arial,Helvetica,sans-serif;">
@@ -47,7 +60,8 @@ function buildOrderHtml(order, recipientType, unsubscribeUrl) {
         <tr>
           <td style="padding:32px;color:#232323;">
             <h2 style="margin:0 0 12px;color:#0A5C43;">Order #${escapeHtml(order.orderNumber)}</h2>
-            <p style="font-size:16px;line-height:1.7;margin:0 0 16px;">${recipientType === 'restaurant' ? 'A new order has been placed.' : 'Thanks for your order. We have received your receipt request.'}</p>
+            <p style="font-size:16px;line-height:1.7;margin:0 0 16px;">${recipientType === 'restaurant' ? 'A new order has been placed.' : 'Thanks for your order. We have received your order and payment details.'}</p>
+            ${trackingBlock}
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0 24px;border-top:1px solid #E7E1D6;border-bottom:1px solid #E7E1D6;">
               <tr><td style="padding:8px 0;"><strong>Customer</strong></td><td align="right" style="padding:8px 0;">${escapeHtml(order.fullName)}</td></tr>
               <tr><td style="padding:8px 0;"><strong>Email</strong></td><td align="right" style="padding:8px 0;">${escapeHtml(order.email)}</td></tr>
@@ -62,7 +76,7 @@ function buildOrderHtml(order, recipientType, unsubscribeUrl) {
               Total: ₦${Number(order.total).toLocaleString()}
             </p>
             ${order.estimatedTime ? `<p style="font-size:14px;color:#6B6B6B;margin:0 0 6px;">${escapeHtml(order.estimatedTime)}</p>` : ''}
-            ${recipientType === 'customer' && SITE_URL ? `<p style="font-size:14px;color:#6B6B6B;margin:0 0 24px;"><a href="${SITE_URL}/track.html?order=${encodeURIComponent(order.orderNumber)}${order.trackingToken ? `&token=${encodeURIComponent(order.trackingToken)}` : ''}" style="color:#0F7A5A;">Track your order</a></p>` : ''}
+            ${recipientType === 'customer' && SITE_URL && trackingToken ? `<p style="font-size:14px;color:#6B6B6B;margin:0 0 24px;"><a href="${SITE_URL}/track.html?order=${encodeURIComponent(order.orderNumber)}&token=${encodeURIComponent(trackingToken)}" style="color:#0F7A5A;">Track your order</a></p>` : ''}
           </td>
         </tr>
         <tr>
@@ -78,7 +92,7 @@ function buildOrderHtml(order, recipientType, unsubscribeUrl) {
 </html>`;
 }
 
-async function sendMail(toEmail, subject, html) {
+async function sendMail(toEmail, subject, html, text) {
     const response = await fetch(`${MAILERSEND_API}/email`, {
         method: 'POST',
         headers: {
@@ -91,7 +105,7 @@ async function sendMail(toEmail, subject, html) {
             to: [{ email: toEmail }],
             subject,
             html,
-            text: 'Your order update from Emerald\'s Cuisine.'
+            text
         })
     });
 
@@ -124,20 +138,31 @@ export default {
 
         const customerEmail = String(order.email || '').trim().toLowerCase();
         const restaurantEmail = Deno.env.get('RESTAURANT_EMAIL') || '';
+        const trackingToken = String(order.trackingToken || '').trim();
         if (!isValidEmail(customerEmail)) {
             return json({ error: 'Customer email is invalid.' }, 400);
         }
         if (!isValidEmail(restaurantEmail)) {
             return json({ error: 'RESTAURANT_EMAIL secret is not set or invalid.' }, 500);
         }
+        if (!trackingToken) {
+            return json({ error: 'Order tracking token is missing.' }, 400);
+        }
 
         const customerHtml = buildOrderHtml(order, 'customer', `${SITE_URL}/unsubscribe.html?email=${encodeURIComponent(customerEmail)}`);
         const restaurantHtml = buildOrderHtml(order, 'restaurant', '');
+        const customerText = [
+            `Your order ${order.orderNumber} is confirmed.`,
+            `Order tracking token: ${trackingToken}`,
+            `Keep this token safe. You will need it together with your order number to track your order.`,
+            SITE_URL ? `Track your order: ${SITE_URL}/track.html?order=${encodeURIComponent(order.orderNumber)}&token=${encodeURIComponent(trackingToken)}` : ''
+        ].filter(Boolean).join('\n\n');
+        const restaurantText = `New order received: ${order.orderNumber}.`;
 
         try {
             await Promise.all([
-                sendMail(restaurantEmail, `New order received: ${order.orderNumber}`, restaurantHtml),
-                sendMail(customerEmail, `Order confirmed: ${order.orderNumber}`, customerHtml)
+                sendMail(restaurantEmail, `New order received: ${order.orderNumber}`, restaurantHtml, restaurantText),
+                sendMail(customerEmail, `Order confirmed: ${order.orderNumber}`, customerHtml, customerText)
             ]);
             return json({ sent_customer: true, sent_restaurant: true });
         } catch (error) {
