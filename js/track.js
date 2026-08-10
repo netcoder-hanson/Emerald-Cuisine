@@ -163,7 +163,10 @@ async function trackOrder(orderNumber, trackingToken) {
     try {
         const response = await fetch(`${functionsUrl}/track-order`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': CONFIG.supabase.anonKey
+            },
             body: JSON.stringify({ order_number: orderNumber, tracking_token: trackingToken })
         });
         if (!response.ok) return null;
