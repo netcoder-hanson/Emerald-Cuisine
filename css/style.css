@@ -505,6 +505,12 @@ section {
     box-shadow: var(--shadow-strong);
 }
 
+@media (min-width: 769px) {
+    .auth-modal-card {
+        width: min(100%, 600px);
+    }
+}
+
 .auth-modal-card .section-header {
     margin-bottom: 24px;
 }
@@ -577,6 +583,71 @@ section {
     font-size: 0.9rem;
     color: var(--text-muted);
     text-align: center;
+}
+
+.auth-signup-grid {
+    display: grid;
+    gap: 16px;
+}
+
+@media (min-width: 769px) {
+    .auth-signup-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .auth-signup-grid .auth-modal-actions,
+    .auth-signup-grid .auth-switch,
+    .auth-signup-grid .form-message,
+    .auth-signup-grid .auth-divider,
+    .auth-signup-grid .btn-google {
+        grid-column: 1 / -1;
+    }
+}
+
+.btn-google {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(17, 17, 17, 0.12);
+    background: white;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.btn-google:hover {
+    background: var(--surface, #f5f5f5);
+    border-color: rgba(17, 17, 17, 0.2);
+}
+
+.btn-google svg {
+    flex-shrink: 0;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(17, 17, 17, 0.1);
+}
+
+.auth-divider span {
+    white-space: nowrap;
 }
 
 .link-button {

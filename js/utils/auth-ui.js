@@ -4,7 +4,7 @@
 // Uses Supabase Auth via auth.js. No legacy custom auth.
 // ============================================================
 
-import { getCurrentUser, restoreSession, loginOrRegister, logoutUser, onAuthStateChange } from './auth.js';
+import { getCurrentUser, restoreSession, loginOrRegister, logoutUser, signInWithGoogle, onAuthStateChange } from './auth.js';
 
 let modalRoot = null;
 let lastFocusedElement = null;
@@ -71,6 +71,16 @@ function buildModal() {
                 <p>Sign in to speed up checkout and keep track of your orders.</p>
             </div>
             <form class="auth-modal-form" novalidate>
+                <button type="button" class="btn btn-google btn-full" id="auth-google-btn">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+                        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+                        <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                    </svg>
+                    Continue with Google
+                </button>
+                <div class="auth-divider"><span>or</span></div>
                 <label class="auth-field">
                     Email address
                     <input type="email" name="email" required autocomplete="email">
@@ -102,6 +112,17 @@ function buildModal() {
         const cb = pendingAuthCallback;
         closeModal();
         openSignupModal(cb);
+    });
+
+    modalRoot.querySelector('#auth-google-btn').addEventListener('click', async () => {
+        const message = modalRoot.querySelector('.auth-modal-message');
+        message.textContent = '';
+        message.classList.remove('error');
+        const { error } = await signInWithGoogle();
+        if (error) {
+            message.textContent = error || 'Could not start Google sign-in. Please try again.';
+            message.classList.add('error');
+        }
     });
 
     document.addEventListener('keydown', event => {
@@ -208,7 +229,17 @@ function buildSignupModal() {
                 <h3 id="auth-signup-title">Create your account</h3>
                 <p>Sign up to speed up checkout and keep track of your orders.</p>
             </div>
-            <form class="auth-modal-form" novalidate>
+            <form class="auth-modal-form auth-signup-grid" novalidate>
+                <button type="button" class="btn btn-google btn-full" id="auth-google-signup-btn">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+                        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+                        <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                    </svg>
+                    Continue with Google
+                </button>
+                <div class="auth-divider"><span>or</span></div>
                 <label class="auth-field">
                     Name
                     <input type="text" name="username" required autocomplete="name">
@@ -220,6 +251,10 @@ function buildSignupModal() {
                 <label class="auth-field">
                     Address
                     <input type="text" name="address" placeholder="Delivery address" autocomplete="street-address">
+                </label>
+                <label class="auth-field">
+                    Phone number
+                    <input type="tel" name="phone" placeholder="e.g. 0801 234 5678" autocomplete="tel">
                 </label>
                 <label class="checkbox-row auth-remember">
                     <input type="checkbox" name="useAsDeliveryAddress" value="true" checked>
@@ -253,6 +288,17 @@ function buildSignupModal() {
         openAuthModal(cb);
     });
     signupModalRoot.querySelector('.auth-modal-form').addEventListener('submit', onSubmitSignup);
+
+    signupModalRoot.querySelector('#auth-google-signup-btn').addEventListener('click', async () => {
+        const message = signupModalRoot.querySelector('.auth-modal-message');
+        message.textContent = '';
+        message.classList.remove('error');
+        const { error } = await signInWithGoogle();
+        if (error) {
+            message.textContent = error || 'Could not start Google sign-in. Please try again.';
+            message.classList.add('error');
+        }
+    });
 
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape' && signupModalRoot?.classList.contains('active')) closeSignupModal();
@@ -304,6 +350,7 @@ async function onSubmitSignup(event) {
     const username = String(data.get('username') || '').trim();
     const email = String(data.get('email') || '').trim();
     const address = String(data.get('address') || '').trim();
+    const phone = String(data.get('phone') || '').trim();
     const useAsDeliveryAddress = data.get('useAsDeliveryAddress') === 'true';
     const password = String(data.get('password') || '');
 
@@ -326,6 +373,7 @@ async function onSubmitSignup(event) {
             password,
             name: username,
             address,
+            phone,
             useAsDeliveryAddress
         });
         if (user?.isAdmin) {

@@ -15,6 +15,7 @@ import {
     signIn as sbSignIn,
     signUp as sbSignUp,
     signOut as sbSignOut,
+    signInWithGoogle as sbSignInWithGoogle,
     onAuthStateChange as sbOnAuthStateChange
 } from './supabase-auth.js';
 
@@ -31,6 +32,7 @@ function buildProfile(customer, authUser) {
         name,
         email,
         username: customer?.username || '',
+        phone: customer?.phone || '',
         address: customer?.address || '',
         useAsDeliveryAddress: Boolean(customer?.use_as_delivery_address),
         isAdmin: Boolean(customer?.is_admin)
@@ -67,6 +69,7 @@ async function ensureCustomerProfile(authUser) {
         || 'User';
     const username = authUser.user_metadata?.username || email.split('@')[0];
     const address = authUser.user_metadata?.address || '';
+    const phone = authUser.user_metadata?.phone || '';
     const useAsDelivery = authUser.user_metadata?.useAsDeliveryAddress || false;
 
     const { data: created, error: insertError } = await client
@@ -77,6 +80,7 @@ async function ensureCustomerProfile(authUser) {
             name: displayName,
             username,
             address,
+            phone,
             use_as_delivery_address: useAsDelivery
         })
         .select()
@@ -178,6 +182,7 @@ export async function loginOrRegister({
     password,
     name = '',
     address = '',
+    phone = '',
     useAsDeliveryAddress = false
 }) {
     const trimmedEmail = String(email || '').trim().toLowerCase();
@@ -199,6 +204,7 @@ export async function loginOrRegister({
             name: name || trimmedEmail.split('@')[0],
             username: name || trimmedEmail.split('@')[0],
             address,
+            phone,
             useAsDeliveryAddress
         }
     });
@@ -237,4 +243,12 @@ export async function logoutUser() {
  */
 export function onAuthStateChange(callback) {
     return sbOnAuthStateChange(callback);
+}
+
+/**
+ * Initiate Google OAuth sign-in.
+ * Delegates to Supabase Auth's signInWithOAuth.
+ */
+export async function signInWithGoogle() {
+    return sbSignInWithGoogle();
 }

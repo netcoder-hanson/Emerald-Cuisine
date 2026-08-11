@@ -135,6 +135,33 @@ export async function signOut() {
 }
 
 // ------------------------------------------------------------
+// OAuth
+// ------------------------------------------------------------
+
+/**
+ * Initiate Google OAuth sign-in via Supabase.
+ * Redirects the browser to Google's consent screen.
+ * On success, Supabase redirects back to the current page.
+ * @returns {Promise<{error: string|null}>}
+ */
+export async function signInWithGoogle() {
+    const client = getClient();
+    if (!client) return { error: 'Supabase is not configured.' };
+    try {
+        const { error } = await client.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}${window.location.pathname}`
+            }
+        });
+        if (error) return { error: error.message };
+        return { error: null };
+    } catch (e) {
+        return { error: e.message || 'Google sign-in failed.' };
+    }
+}
+
+// ------------------------------------------------------------
 // Auth state listener
 // ------------------------------------------------------------
 
