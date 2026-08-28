@@ -425,7 +425,7 @@ section {
     box-shadow: var(--shadow-strong);
     opacity: 0;
     visibility: hidden;
-    transform: translateY(-6px);
+    transform: translate3d(var(--auth-menu-x, 0px), -6px, 0);
     transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
     z-index: 1100;
 }
@@ -433,7 +433,20 @@ section {
 .auth-menu.open {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translate3d(var(--auth-menu-x, 0px), 0, 0);
+}
+
+/* When there is not enough vertical space below the chip (e.g. the auth
+   menu sits low in the fixed sidebar), flip the dropdown to open upward so
+   every item — including "Sign out" — stays visible and clickable. */
+.auth-menu.up {
+    top: auto;
+    bottom: calc(100% + 10px);
+    transform: translate3d(var(--auth-menu-x, 0px), 6px, 0);
+}
+
+.auth-menu.up.open {
+    transform: translate3d(var(--auth-menu-x, 0px), 0, 0);
 }
 
 .auth-menu-user {

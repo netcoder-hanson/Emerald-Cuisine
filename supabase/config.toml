@@ -4,14 +4,21 @@
 
 project_id = "nbzqofzuotetkvtuloba"
 
-# The send-promotion-email function authenticates with the publishable key
-# (auth: 'publishable'), so the platform-level JWT check must be disabled.
-# See https://supabase.com/docs/guides/functions/auth
-[functions.send-promotion-email]
-verify_jwt = false
-
+# send-order-email: requires a valid user JWT (authenticated caller).
+# The function verifies the caller is signed in. It is invoked by the
+# checkout flow for each customer's own order, so it must not require
+# admin — only an authenticated session.
 [functions.send-order-email]
-verify_jwt = false
+verify_jwt = true
 
+# send-promotion-email: requires a valid user JWT (authenticated caller).
+# The function verifies is_admin server-side before blasting the mailing list.
+[functions.send-promotion-email]
+verify_jwt = true
+
+# track-order: intentionally uses verify_jwt = false.
+# This is a capability-token endpoint — anonymous users look up orders
+# using order_number + tracking_token (128-bit hex).  No customer PII
+# is returned beyond what's needed for tracking display.
 [functions.track-order]
 verify_jwt = false

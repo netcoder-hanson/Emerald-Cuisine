@@ -259,7 +259,7 @@ Any static host works — [Netlify](https://netlify.com), [Vercel](https://verce
 
 ## Disclaimer
 
-The Supabase RLS policies and browser-based admin password are **demo-grade** and are intended for learning. Before deploying to production, move admin authentication server-side, harden the database policies, and review the API keys' visibility.
+The Supabase RLS policies have been hardened by **Phase 1A** (restrictive, role-based policies with RLS enforced). The mail-sending Edge Functions now require a verified admin JWT. Residual risks (client-side price computation, confirmation-page IDOR, rate limiting) are tracked in "Remaining Security Work".
 
 ---
 
@@ -308,35 +308,84 @@ Orders are now linked to customer accounts via `customer_id`:
 
 The following limitations remain and should be addressed in future phases:
 
-1. **Client-side admin auth**: Admin authentication is still browser-based (sessionStorage)
-2. **No RLS policies**: Row Level Security policies are not yet configured in the repository
-3. **No Supabase Auth**: The application uses a custom session system, not Supabase Auth
-4. **No order isolation**: Any user can still view any order by number (no ownership verification)
+1. **Client-side admin gate**: Admin access is verified server-side via RLS (`is_admin()` SECURITY DEFINER function), but the `admin.html` UI still decides when to show the dashboard based on a client-side profile check. The data layer is safe; the UI is not.
+2. **Client-side price computation**: Order totals are computed in the browser; a server-side recompute from `menu_items` is not yet in place.
+3. **Rate limiting**: Order lookup / review / unsubscribe endpoints have no rate limiting.
 
 ### Remaining Security Work
 
-- **P0**: Implement RLS policies to restrict order access to order owners
-- **P0**: Move admin authentication server-side
-- **P0**: Add order ownership verification for tracking/confirmation
-- **P1**: Consider migrating to Supabase Auth for better security
-- **P1**: Add rate limiting for order lookups
+- **P0**: Server-side order total recomputation (currently client-supplied) — out of scope for Phase 1A
+- **P0**: Order ownership verification on the confirmation page (IDOR) — out of scope for Phase 1A
+- **P0**: Checkout double-submit race fix — out of scope for Phase 1A
+- **P1**: Rate limiting for order lookups / review submission
+- **P1**: Review inserts are now restricted to authenticated users, but there is no DB-level per-user rate limit
 - **P2**: Implement order status updates from restaurant
+
+## Phase 1A: RLS & Authorization
+
+### What Changed (Security)
+
+The `supabase/migrations/20260828000000_phase_1a_rls_authorization.sql` migration plus two Edge Function fixes close all authorization weaknesses:
+
+1. **RLS is now actually enabled** — every policy previously existed but Row Level Security was never turned on, so the policies had no effect. Phase 1A runs `ENABLE ROW LEVEL SECURITY` + `FORCE ROW LEVEL SECURITY` on all 8 tables.
+2. **Anonymous unsubscribe closed** — the old `subscribers_unsubscribe_by_email` policy allowed *anyone* (anon included) to `UPDATE` any subscriber row (and change any column). Removed. Replaced with the `unsubscribe_by_email(email)` SECURITY DEFINER function that only sets `status = 'unsubscribed'` on the matching email and flips `customers.marketing_opt_in`. `js/unsubscribe.js` now calls this RPC.
+3. **Review spam closed** — `reviews_public_insert` allowed unlimited anonymous review inserts. Now `reviews_authenticated_insert` requires an authenticated session.
+4. **Admin write locked down** — menu/categories/promotions/settings/subscribers/admin operations all require `is_admin()`.
+5. **Schema integrity** — added `orders_order_number_unique`, `subscribers_email_unique`, the missing `fk_orders_customer`, made `is_admin` `NOT NULL DEFAULT false`, and dropped the redundant tracking-token index.
+
+### What Changed (Edge Functions)
+
+The mail-sending Edge Functions previously ran with `verify_jwt = false` and **no caller authorization** — anyone with the public publishable key could trigger bulk email to the entire mailing list.
+
+- `supabase/functions/send-order-email/index.ts` now uses `withSupabase({ auth: 'user' })` and requires an **authenticated** caller (a signed-in customer placing their own order). Anonymous internet callers can no longer send mail.
+- `supabase/functions/send-promotion-email/index.ts` now uses `withSupabase({ auth: 'user' })` and verifies **`is_admin`** server-side before blasting the mailing list. Only administrators can trigger promotions.
+- `supabase/config.toml` now sets `verify_jwt = true` for both mailers.
+- `track-order` intentionally keeps `verify_jwt = false` (it is a capability-token lookup using order_number + 128-bit tracking_token).
+
+### Client File Changes
+
+- `js/unsubscribe.js` — switched from direct `subscribers` UPDATE (now blocked by RLS) to the `unsubscribe_by_email` RPC.
 
 ### Database Migration Instructions
 
-After pulling these changes, run the migration in the Supabase SQL Editor:
+After pulling these changes, run the migrations in the Supabase SQL Editor (or via `supabase db push`) in order. The newest migration, **Phase 1A RLS & Authorization**, is required for production-safe authorization:
 
-```sql
--- Check if customer_id column exists on orders table
-SELECT column_name 
-FROM information_schema.columns 
-WHERE table_name = 'orders' AND column_name = 'customer_id';
-
--- If not, run the migration file contents from:
--- supabase/migrations/20260808000000_phase0_foundation.sql
+```bash
+supabase db push          # applies supabase/migrations/*.sql in order
 ```
 
-**Important**: Verify `customers.id` is UUID type before adding the foreign key constraint. The commented-out constraint in the migration file should be uncommented after verification.
+**Phase 1A** (`supabase/migrations/20260828000000_phase_1a_rls_authorization.sql`) enables and FORCEs Row Level Security on all 8 tables, removes an insecure anonymous subscribers UPDATE policy, add restrictive role-based policies, fixes `is_admin` NULLability, and adds referential-integrity constraints. It also creates the `unsubscribe_by_email()` SECURITY DEFINER function that the `unsubscribe.js` client now calls.
+
+> ⚠️ **Prerequisite for Phase E/1A idempotency**: The policy names dropped/recreated in Phase E (`20260809000002_phase_e_rls_hardening.sql`) and Phase 1A must match exactly (case-sensitive). Phase 1A drops both the legacy `"open access …"` policies and the Phase E policies so the migration is idempotent against either state.
+
+---
+
+## Google OAuth Configuration
+
+### Consent Screen Branding
+
+In the [Google Cloud Console](https://console.cloud.google.com), navigate to **APIs & Services → OAuth consent screen** and set the **Application name** to:
+
+```
+Emerald's Cuisine
+```
+
+This is the name users see when Google prompts them to grant access. It should match the restaurant brand, not a developer or project name.
+
+### Redirect URIs
+
+Google OAuth requires that every permitted redirect URI is registered in the Cloud Console under **APIs & Services → Credentials → OAuth 2.0 Client IDs → Authorized redirect URIs**.
+
+The app sets `redirectTo` dynamically based on the current page URL (`window.location.origin + window.location.pathname`), so each environment needs its own entry:
+
+| Environment | Redirect URI to add |
+| --- | --- |
+| Local development | `http://localhost:8000/` (or whatever port you serve from) |
+| Production | `https://emeraldscuisine.com/` |
+
+> **Important**: The URI must end with a trailing slash to match the app's `window.location.pathname`. Without the trailing slash, the redirect will be rejected by Google.
+
+In the Supabase dashboard (**Authentication → Providers → Google**), the same URIs must also be listed under **Authorized Client IDs / Redirect URLs** so Supabase permits the callback.
 
 ---
 

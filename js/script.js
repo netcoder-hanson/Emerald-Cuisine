@@ -190,6 +190,11 @@ if (reservationCancel) {
     reservationCancel.addEventListener('click', closeModal);
 }
 
+const reservationClose = reservationModal?.querySelector('.modal-close');
+if (reservationClose) {
+    reservationClose.addEventListener('click', closeModal);
+}
+
 if (modalOverlay) {
     modalOverlay.addEventListener('click', closeModal);
 }

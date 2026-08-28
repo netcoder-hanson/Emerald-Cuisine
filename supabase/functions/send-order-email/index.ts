@@ -1,7 +1,7 @@
 import { withSupabase } from 'npm:@supabase/server';
 
 const MAILERSEND_API_KEY = Deno.env.get('MAILERSEND_API_KEY') || '';
-const FROM_EMAIL = Deno.env.get('MAILERSEND_FROM_EMAIL') || 'netcoder.hanson@gmail.com';
+const FROM_EMAIL = Deno.env.get('MAILERSEND_FROM_EMAIL') || '';
 const FROM_NAME = Deno.env.get('MAILERSEND_FROM_NAME') || "Emerald's Cuisine";
 const SITE_URL = Deno.env.get('SITE_URL') || '';
 const MAILERSEND_API = 'https://api.mailersend.com/v3';
@@ -27,7 +27,7 @@ function buildOrderHtml(order, recipientType, unsubscribeUrl) {
     const items = Array.isArray(order.items) ? order.items : [];
     const itemRows = items.map(item => `
       <tr>
-        <td style="padding:8px 0;">${escapeHtml(item.name)} x${escapeHtml(item.quantity)}</td>
+        <td style="padding:8px 0;">${escapeHtml(item.name)} x${escapeHtml(String(item.quantity))}</td>
         <td align="right" style="padding:8px 0;">₦${Number(item.price * item.quantity).toLocaleString()}</td>
       </tr>
     `).join('');
@@ -116,12 +116,21 @@ async function sendMail(toEmail, subject, html, text) {
 }
 
 export default {
-    fetch: withSupabase({ auth: 'publishable' }, async (req) => {
+    fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
         if (req.method !== 'POST') {
             return json({ error: 'Method not allowed' }, 405);
         }
         if (!MAILERSEND_API_KEY) {
             return json({ error: 'MAILERSEND_API_KEY secret is not set on this Edge Function.' }, 500);
+        }
+
+        // ── Authorization: require an authenticated caller ─────
+        // ctx.userClaims is populated by withSupabase({ auth: 'user' })
+        // after the platform verified the JWT via the project JWKS.
+        // Any authenticated customer may send their own order emails;
+        // anonymous internet callers are blocked (was open before).
+        if (!ctx.userClaims?.id) {
+            return json({ error: 'Unauthorized: sign in required.' }, 401);
         }
 
         let payload;
@@ -167,7 +176,7 @@ export default {
             return json({ sent_customer: true, sent_restaurant: true });
         } catch (error) {
             console.error('send-order-email error:', error);
-            return json({ error: `Internal error: ${error.message}` }, 500);
+            return json({ error: 'Failed to send order email.' }, 500);
         }
     })
 };

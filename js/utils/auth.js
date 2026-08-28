@@ -174,6 +174,22 @@ export function restoreSession() {
 }
 
 /**
+ * Re-read the current customer profile from the database and update the
+ * in-memory cache. Called after the customer edits their own profile so the
+ * rest of the UI (dropdown, checkout prefill) reflects the saved changes.
+ * @returns {Promise<object|null>}
+ */
+export async function refreshProfile() {
+    try {
+        const session = await sbGetSession();
+        return await _hydrateCache(session?.user || null);
+    } catch (error) {
+        console.error('Failed to refresh profile:', error);
+        return _cachedUser;
+    }
+}
+
+/**
  * Sign in with email/password. If the credentials are not found,
  * attempts to sign up instead.
  */

@@ -1,7 +1,7 @@
 import { withSupabase } from 'npm:@supabase/server';
 
 const MAILERSEND_API_KEY = Deno.env.get('MAILERSEND_API_KEY') || '';
-const FROM_EMAIL = Deno.env.get('MAILERSEND_FROM_EMAIL') || 'netcoder.hanson@gmail.com';
+const FROM_EMAIL = Deno.env.get('MAILERSEND_FROM_EMAIL') || '';
 const FROM_NAME = Deno.env.get('MAILERSEND_FROM_NAME') || "Emerald's Cuisine";
 // Public origin used to build unsubscribe links (e.g. https://emeraldscuisine.com).
 const SITE_URL = Deno.env.get('SITE_URL') || '';
@@ -97,12 +97,27 @@ async function sendBulk(recipients, subject, buildHtmlFor) {
 }
 
 export default {
-    fetch: withSupabase({ auth: 'publishable' }, async (req, ctx) => {
+    fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
         if (req.method !== 'POST') {
             return json({ error: 'Method not allowed' }, 405);
         }
         if (!MAILERSEND_API_KEY) {
             return json({ error: 'MAILERSEND_API_KEY secret is not set on this Edge Function.' }, 500);
+        }
+
+        // ── Authorization: verify caller is an admin ──────────
+        // ctx.userClaims is populated by withSupabase({ auth: 'user' })
+        // after the platform verified the JWT via the project JWKS.
+        // We confirm the caller has is_admin = true in customers.
+        const supabase = ctx.supabaseAdmin;
+        const { data: caller, error: callerError } = await supabase
+            .from('customers')
+            .select('is_admin')
+            .eq('auth_user_id', ctx.userClaims?.id)
+            .maybeSingle();
+
+        if (callerError || !ctx.userClaims?.id || !caller?.is_admin) {
+            return json({ error: 'Forbidden: admin access required.' }, 403);
         }
 
         let payload;
@@ -118,8 +133,6 @@ export default {
         }
 
         try {
-            const supabase = ctx.supabaseAdmin;
-
             // 1. Load the promotion.
             const { data: promotion, error: promoError } = await supabase
                 .from('promotions')
@@ -192,7 +205,7 @@ export default {
             });
         } catch (err) {
             console.error('send-promotion-email error:', err);
-            return json({ error: `Internal error: ${err.message}` }, 500);
+            return json({ error: 'Failed to send promotion email.' }, 500);
         }
     })
 };

@@ -28,29 +28,16 @@ async function unsubscribe(email) {
 
     const client = getSupabaseClient();
     if (client) {
-        // Try to flip the subscribers row to 'unsubscribed' (consent respected).
-        const { data, error } = await client
-            .from('subscribers')
-            .update({ status: 'unsubscribed' })
-            .eq('email', normalized)
-            .select();
+        // Call the SECURITY DEFINER function which safely sets
+        // status = 'unsubscribed' and flips customer marketing_opt_in.
+        // This replaces the removed direct UPDATE policies.
+        const { error } = await client.rpc('unsubscribe_by_email', {
+            p_email: normalized
+        });
 
         if (error) {
-            console.error('Unsubscribe Supabase error:', error);
+            console.error('Unsubscribe RPC error:', error);
             return { ok: false, message: 'We could not update your preference right now. Please try again later.' };
-        }
-        if (data && data.length) {
-            return { ok: true, message: 'You have been unsubscribed from promotional emails.' };
-        }
-        // Email not in subscribers — try to flip marketing opt-in on customers.
-        // This may fail for anon users due to RLS; treat as best-effort.
-        const { error: custError } = await client
-            .from('customers')
-            .update({ marketing_opt_in: false })
-            .eq('email', normalized);
-
-        if (custError) {
-            console.warn('Customer opt-out skipped (may require auth):', custError.message);
         }
         return { ok: true, message: 'You have been unsubscribed from promotional emails.' };
     }
